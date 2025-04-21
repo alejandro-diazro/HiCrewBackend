@@ -1,0 +1,63 @@
+# Node.js dependencies
+node_modules/
+npm-debug.log
+yarn-error.log
+yarn-debug.log
+
+# Environment variables
+.env
+.env.local
+.env.development
+.env.test
+.env.production
+
+# Prisma generated files
+prisma/generated/
+prisma/dev.db
+prisma/*.db
+prisma/*.db-journal
+prisma/migrations
+
+# Database data (if using Docker or local MariaDB)
+data/
+*.sql
+*.sql.gz
+
+# Logs
+logs/
+*.log
+*.log.*
+
+# Build and distribution files
+dist/
+build/
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+*.bak
+*.swp
+
+# IDE and editor files
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# Operating system files
+.DS_Store
+Thumbs.db
+
+# Docker-related files
+docker-compose.yml.bak
+*.dockerignore
+
+# Testing and coverage
+coverage/
+*.lcov
+
+# Miscellaneous
+*.seed
+*.pid
+*.pid.lock

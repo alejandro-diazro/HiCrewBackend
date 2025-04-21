@@ -1,0 +1,57 @@
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model Pilot {
+  id          Int              @id @default(autoincrement())
+  email       String           @unique
+  ivaoId      String?          @unique
+  vatsimId    String?          @unique
+  firstName   String
+  lastName    String
+  birthDate   DateTime?
+  callsign    String?
+  password    String?
+  hours       Float            @default(0)
+  rank        String           @default("Cadet")
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+  pilotPermissions PilotPermission[]
+  flights     Flight[]
+}
+
+model Permission {
+  id          Int              @id @default(autoincrement())
+  name        String           @unique // Example: "VIEW_PILOTS", "MANAGE_FLIGHTS"
+  description String?
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+  pilotPermissions PilotPermission[]
+}
+
+model PilotPermission {
+  pilotId     Int      @map("pilot_id")
+  permissionId Int     @map("permission_id")
+  pilot       Pilot    @relation(fields: [pilotId], references: [id])
+  permission  Permission @relation(fields: [permissionId], references: [id])
+  createdAt   DateTime @default(now())
+  @@id([pilotId, permissionId])
+  @@map("pilot_permissions")
+}
+
+model Flight {
+  id        Int      @id @default(autoincrement())
+  pilotId   Int
+  pilot     Pilot    @relation(fields: [pilotId], references: [id])
+  route     String
+  aircraft  String
+  status    String   @default("Pending")
+  pirep     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
