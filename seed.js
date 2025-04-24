@@ -5,6 +5,7 @@ async function seed() {
     const permissions = [
         { name: 'ADMIN', description: 'Full access to all actions' },
         { name: 'RULE_ADMIN', description: 'Create, edit, and delete rules' },
+        { name: 'SOCIAL_MANAGER', description: 'Create, edit, and delete social networks' },
     ];
 
     for (const permission of permissions) {

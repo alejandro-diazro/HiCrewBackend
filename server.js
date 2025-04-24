@@ -4,6 +4,7 @@ const dotenv = require('dotenv');
 const authRoutes = require('./routes/auth');
 const pilotRoutes = require('./routes/pilots');
 const ruleRoutes = require('./routes/rules');
+const socialNetworkRoutes = require('./routes/socialNetworks');
 
 dotenv.config();
 
@@ -15,6 +16,7 @@ app.use(express.json());
 app.use('/auth', authRoutes);
 app.use('/pilots', pilotRoutes);
 app.use('/rules', ruleRoutes);
+app.use('/social-networks', socialNetworkRoutes);
 
 app.get('/', (req, res) => {
     res.json({ message: 'API HiCrew' });
