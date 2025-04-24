@@ -72,3 +72,25 @@ model SocialNetwork {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
+
+model Documentation {
+  id        Int      @id @default(autoincrement())
+  url       String   @db.VarChar(255)
+  name      String   @db.VarChar(100)
+  isPublic  Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Event {
+  id              Int      @id @default(autoincrement())
+  time_event_start DateTime
+  time_event_end   DateTime
+  open_view_date   DateTime
+  close_view_date  DateTime
+  text            String   @db.VarChar(1024)
+  banner          String   @db.VarChar(255)
+  points          Int
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
