@@ -12,6 +12,7 @@ async function seed() {
         { name: 'OPERATIONS_MANAGER', description: 'Manage simulators and airlines' },
         { name: 'USER_MANAGER', description: 'Manage medals and ranks, users' },
         { name: 'PAINT_MANAGER', description: 'Manage paintkits' },
+        { name: 'TOUR_MANAGER', description: 'Manage tours, legs, and tour reports' },
     ];
 
     for (const permission of permissions) {

@@ -23,6 +23,7 @@ model Pilot {
   updatedAt   DateTime         @updatedAt
   pilotPermissions PilotPermission[]
   flights     Flight[]
+  reportTours    ReportTour[]
 }
 
 model Permission {
@@ -41,7 +42,7 @@ model PilotPermission {
   permission  Permission @relation(fields: [permissionId], references: [id])
   createdAt   DateTime @default(now())
   @@id([pilotId, permissionId])
-  @@map("pilot_permissions")
+  @@map("PilotPermissions")
 }
 
 model Flight {
@@ -137,6 +138,7 @@ model Medal {
   text      String   @db.VarChar(255)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  tours     Tour[]
 }
 
 model Rank {
@@ -161,6 +163,8 @@ model Airport {
   updatedAt DateTime @updatedAt
   departureRoutes Route[]    @relation("DepartureAirport")
   arrivalRoutes   Route[]    @relation("ArrivalAirport")
+  departureLegs   Leg[]      @relation("DepartureLeg")
+  arrivalLegs     Leg[]      @relation("ArrivalLeg")
 }
 
 model Aircraft {
@@ -226,4 +230,44 @@ model RequestJoin {
   status    Int      @default(0) // 0: pending, 1: approved, 2: rejected
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+model Tour {
+  id          Int      @id @default(autoincrement())
+  medalId     Int
+  medal       Medal    @relation(fields: [medalId], references: [id])
+  img         String   @db.VarChar(255)
+  name        String   @db.VarChar(100)
+  description String   @db.VarChar(255)
+  open_day    DateTime
+  close_day   DateTime
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  legs        Leg[]
+}
+
+model Leg {
+  id                   Int      @id @default(autoincrement())
+  tourId               Int
+  tour                 Tour     @relation(fields: [tourId], references: [id])
+  airportDepartureIcao String
+  airportDeparture     Airport  @relation("DepartureLeg", fields: [airportDepartureIcao], references: [icao])
+  airportArrivalIcao   String
+  airportArrival       Airport  @relation("ArrivalLeg", fields: [airportArrivalIcao], references: [icao])
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+  reportTours          ReportTour[]
+}
+
+model ReportTour {
+  id             Int      @id @default(autoincrement())
+  userId         Int
+  user           Pilot    @relation(fields: [userId], references: [id])
+  legId          Int
+  leg            Leg      @relation(fields: [legId], references: [id])
+  status         Int      @default(0) // 0: pending, 1: accepted, 2: rejected
+  time_departure DateTime
+  time_arrival   DateTime
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 }

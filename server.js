@@ -18,6 +18,9 @@ const fleetRoutes = require('./routes/fleet');
 const paintkitRoutes = require('./routes/paintkits');
 const routeRoutes = require('./routes/routes');
 const requestJoinRoutes = require('./routes/request-joins');
+const tourRoutes = require('./routes/tours');
+const legRoutes = require('./routes/legs');
+const reportTourRoutes = require('./routes/report-tours');
 
 
 dotenv.config();
@@ -44,6 +47,9 @@ app.use('/fleet', fleetRoutes);
 app.use('/paintkits', paintkitRoutes);
 app.use('/routes', routeRoutes);
 app.use('/request-joins', requestJoinRoutes);
+app.use('/tours', tourRoutes);
+app.use('/legs', legRoutes);
+app.use('/report-tours', reportTourRoutes);
 
 
 app.get('/', (req, res) => {
@@ -52,5 +58,5 @@ app.get('/', (req, res) => {
 
 const PORT = process.env.PORT || 8000;
 app.listen(PORT, () => {
-    console.log(`Servidor corriendo en http://localhost:${PORT}`);
+    console.log(`Server running in http://localhost:${PORT}`);
 });
