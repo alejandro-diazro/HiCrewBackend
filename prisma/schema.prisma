@@ -94,3 +94,37 @@ model Event {
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 }
+
+model Notam {
+  id              Int      @id @default(autoincrement())
+  text            String   @db.VarChar(1024)
+  lang            String   @db.VarChar(4)
+  active_date     DateTime
+  desactivate_date DateTime
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+model Config {
+  name      String   @id
+  isActive  Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Simulator {
+  id        Int      @id @default(autoincrement())
+  name      String   @db.VarChar(100)
+  logo      String   @db.VarChar(255)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Airline {
+  id        Int      @id @default(autoincrement())
+  name      String   @db.VarChar(100)
+  logo      String   @db.VarChar(255)
+  can_join  Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}

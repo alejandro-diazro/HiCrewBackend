@@ -7,6 +7,10 @@ const ruleRoutes = require('./routes/rules');
 const socialNetworkRoutes = require('./routes/socialNetworks');
 const documentationRoutes = require('./routes/documentation');
 const eventRoutes = require('./routes/events');
+const notamRoutes = require('./routes/notams');
+const simulatorRoutes = require('./routes/simulators');
+const airlineRoutes = require('./routes/airlines');
+
 
 dotenv.config();
 
@@ -21,6 +25,9 @@ app.use('/rules', ruleRoutes);
 app.use('/social-networks', socialNetworkRoutes);
 app.use('/documentation', documentationRoutes);
 app.use('/events', eventRoutes);
+app.use('/notams', notamRoutes);
+app.use('/simulators', simulatorRoutes);
+app.use('/airlines', airlineRoutes);
 
 app.get('/', (req, res) => {
     res.json({ message: 'API HiCrew' });

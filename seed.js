@@ -8,6 +8,8 @@ async function seed() {
         { name: 'SOCIAL_MANAGER', description: 'Create, edit, and delete social networks' },
         { name: 'DOC_MANAGER', description: 'Create, edit, and delete documentation' },
         { name: 'EVENT_MANAGER', description: 'Create, edit, and delete events' },
+        { name: 'NOTAMS_MANAGER', description: 'Create, edit, and delete NOTAMs' },
+        { name: 'OPERATIONS_MANAGER', description: 'Manage simulators and airlines' },
     ];
 
     for (const permission of permissions) {
