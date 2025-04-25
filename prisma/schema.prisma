@@ -118,6 +118,7 @@ model Simulator {
   logo      String   @db.VarChar(255)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  paintkits Paintkit[]
 }
 
 model Airline {
@@ -125,6 +126,104 @@ model Airline {
   name      String   @db.VarChar(100)
   logo      String   @db.VarChar(255)
   can_join  Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  routes       Route[]
+}
+
+model Medal {
+  id        Int      @id @default(autoincrement())
+  img       String   @db.VarChar(255)
+  text      String   @db.VarChar(255)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Rank {
+  id        Int      @id @default(autoincrement())
+  name      String   @db.VarChar(100)
+  img       String   @db.VarChar(255)
+  hours     Int
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  fleets    Fleet[]
+}
+
+model Airport {
+  icao      String   @id @db.VarChar(4)
+  iata      String   @db.VarChar(3)
+  name      String   @db.VarChar(100)
+  country   String   @db.VarChar(100)
+  latitude  Float
+  longitude Float
+  altitude  Int
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  departureRoutes Route[]    @relation("DepartureAirport")
+  arrivalRoutes   Route[]    @relation("ArrivalAirport")
+}
+
+model Aircraft {
+  id             Int      @id @default(autoincrement())
+  icao           String   @db.VarChar(4)
+  manufacturer   String   @db.VarChar(100)
+  range          Int
+  max_passengers Int
+  img            String   @db.VarChar(255)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  fleet          Fleet[]
+  paintkits      Paintkit[]
+}
+
+model Fleet {
+  id         Int      @id @default(autoincrement())
+  aircraftId Int
+  aircraft   Aircraft @relation(fields: [aircraftId], references: [id])
+  name       String   @db.VarChar(100)
+  state      String   @db.VarChar(50)
+  life       Int
+  rankId     Int?
+  rank       Rank?    @relation(fields: [rankId], references: [id])
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  routes       Route[]
+}
+
+model Paintkit {
+  id          Int      @id @default(autoincrement())
+  simulatorId Int
+  simulator   Simulator @relation(fields: [simulatorId], references: [id])
+  url         String   @db.VarChar(255)
+  aircraftId  Int
+  aircraft    Aircraft @relation(fields: [aircraftId], references: [id])
+  developer   String   @db.VarChar(100)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Route {
+  id            Int        @id @default(autoincrement())
+  departureIcao String
+  departure     Airport    @relation("DepartureAirport", fields: [departureIcao], references: [icao])
+  arrivalIcao   String
+  arrival       Airport    @relation("ArrivalAirport", fields: [arrivalIcao], references: [icao])
+  fleetId       Int
+  fleet         Fleet      @relation(fields: [fleetId], references: [id])
+  airlineId     Int
+  airline       Airline    @relation(fields: [airlineId], references: [id])
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+}
+
+model RequestJoin {
+  id        Int      @id @default(autoincrement())
+  name      String   @db.VarChar(100)
+  id_ivao   String?  @db.VarChar(20)
+  id_vatsim String?  @db.VarChar(20)
+  birthday  DateTime
+  email     String   @db.VarChar(255)
+  status    Int      @default(0) // 0: pending, 1: approved, 2: rejected
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }

@@ -10,6 +10,8 @@ async function seed() {
         { name: 'EVENT_MANAGER', description: 'Create, edit, and delete events' },
         { name: 'NOTAMS_MANAGER', description: 'Create, edit, and delete NOTAMs' },
         { name: 'OPERATIONS_MANAGER', description: 'Manage simulators and airlines' },
+        { name: 'USER_MANAGER', description: 'Manage medals and ranks, users' },
+        { name: 'PAINT_MANAGER', description: 'Manage paintkits' },
     ];
 
     for (const permission of permissions) {

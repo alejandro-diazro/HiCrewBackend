@@ -10,6 +10,14 @@ const eventRoutes = require('./routes/events');
 const notamRoutes = require('./routes/notams');
 const simulatorRoutes = require('./routes/simulators');
 const airlineRoutes = require('./routes/airlines');
+const medalRoutes = require('./routes/medals');
+const rankRoutes = require('./routes/ranks');
+const airportRoutes = require('./routes/airports');
+const aircraftRoutes = require('./routes/aircraft');
+const fleetRoutes = require('./routes/fleet');
+const paintkitRoutes = require('./routes/paintkits');
+const routeRoutes = require('./routes/routes');
+const requestJoinRoutes = require('./routes/request-joins');
 
 
 dotenv.config();
@@ -28,6 +36,15 @@ app.use('/events', eventRoutes);
 app.use('/notams', notamRoutes);
 app.use('/simulators', simulatorRoutes);
 app.use('/airlines', airlineRoutes);
+app.use('/medals', medalRoutes);
+app.use('/ranks', rankRoutes);
+app.use('/airports', airportRoutes);
+app.use('/aircraft', aircraftRoutes);
+app.use('/fleet', fleetRoutes);
+app.use('/paintkits', paintkitRoutes);
+app.use('/routes', routeRoutes);
+app.use('/request-joins', requestJoinRoutes);
+
 
 app.get('/', (req, res) => {
     res.json({ message: 'API HiCrew' });
