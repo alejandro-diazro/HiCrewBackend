@@ -98,4 +98,40 @@ router.post('/login', async (req, res) => {
     }
 });
 
+router.get('/me', async (req, res) => {
+    const token = req.headers.authorization?.split(' ')[1];
+    if (!token) {
+        return res.status(401).json({ error: 'No token was provided' });
+    }
+
+    try {
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        const pilot = await prisma.pilot.findUnique({
+            where: { id: decoded.id },
+            include: {
+                pilotPermissions: {
+                    include: {
+                        permission: true,
+                    },
+                },
+            },
+        });
+
+        if (!pilot) {
+            return res.status(404).json({ error: 'Pilot not found' });
+        }
+
+        const pilotResponse = {
+            ...pilot,
+            permissions: pilot.pilotPermissions.map((pp) => pp.permission),
+            pilotPermissions: undefined,
+        };
+
+        res.json({ pilot: pilotResponse });
+    } catch (error) {
+        console.error('Error getting data from the pilot:', error);
+        res.status(401).json({ error: 'Invalid token' });
+    }
+});
+
 module.exports = router;

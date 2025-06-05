@@ -15,6 +15,7 @@ router.get('/', authenticate, async (req, res) => {
             },
             select: {
                 id: true,
+                title: true,
                 text: true,
                 lang: true,
                 active_date: true,
@@ -35,6 +36,43 @@ router.get('/all', authenticate, checkPermissions(['NOTAMS_MANAGER']), async (re
         const notams = await prisma.notam.findMany({
             select: {
                 id: true,
+                title: true,
+                text: true,
+                lang: true,
+                active_date: true,
+                desactivate_date: true,
+                createdAt: true,
+                updatedAt: true,
+            },
+            orderBy: {
+                id: 'desc',
+            },
+        });
+        res.json(notams);
+    } catch (error) {
+        console.error('Failed to fetch all NOTAMs:', error);
+        res.status(500).json({ error: 'Failed to fetch all NOTAMs' });
+    }
+});
+
+router.get('/:lang', authenticate, async (req, res) => {
+    const { lang } = req.params;
+
+    if (!lang || lang.length > 4) {
+        return res.status(400).json({ error: 'Invalid language code (max 4 characters)' });
+    }
+
+    try {
+        const currentDate = new Date();
+        const notams = await prisma.notam.findMany({
+            where: {
+                lang: lang.toUpperCase(),
+                active_date: { lte: currentDate },
+                desactivate_date: { gte: currentDate },
+            },
+            select: {
+                id: true,
+                title: true,
                 text: true,
                 lang: true,
                 active_date: true,
@@ -45,17 +83,20 @@ router.get('/all', authenticate, checkPermissions(['NOTAMS_MANAGER']), async (re
         });
         res.json(notams);
     } catch (error) {
-        console.error('Failed to fetch all NOTAMs:', error);
-        res.status(500).json({ error: 'Failed to fetch all NOTAMs' });
+        console.error(`Failed to fetch NOTAMs for language ${lang}:`, error);
+        res.status(500).json({ error: 'Failed to fetch NOTAMs by language' });
     }
 });
 
 router.post('/', authenticate, checkPermissions(['NOTAMS_MANAGER']), async (req, res) => {
-    const { text, lang, active_date, desactivate_date } = req.body;
+    const { title, text, lang, active_date, desactivate_date } = req.body;
 
     // Basic validation
-    if (!text || !lang || !active_date || !desactivate_date) {
+    if (!title || !text || !lang || !active_date || !desactivate_date) {
         return res.status(400).json({ error: 'text, lang, active_date, and desactivate_date are required' });
+    }
+    if (title.length > 255) {
+        return res.status(400).json({ error: 'title must be 255 characters or less' });
     }
     if (text.length > 1024) {
         return res.status(400).json({ error: 'text must be 1024 characters or less' });
@@ -67,6 +108,7 @@ router.post('/', authenticate, checkPermissions(['NOTAMS_MANAGER']), async (req,
     try {
         const notam = await prisma.notam.create({
             data: {
+                title,
                 text,
                 lang,
                 active_date: new Date(active_date),
@@ -74,6 +116,7 @@ router.post('/', authenticate, checkPermissions(['NOTAMS_MANAGER']), async (req,
             },
             select: {
                 id: true,
+                title: true,
                 text: true,
                 lang: true,
                 active_date: true,
@@ -91,10 +134,13 @@ router.post('/', authenticate, checkPermissions(['NOTAMS_MANAGER']), async (req,
 
 router.patch('/:id', authenticate, checkPermissions(['NOTAMS_MANAGER']), async (req, res) => {
     const { id } = req.params;
-    const { text, lang, active_date, desactivate_date } = req.body;
+    const { title,text, lang, active_date, desactivate_date } = req.body;
 
-    if (!text && !lang && !active_date && !desactivate_date) {
+    if (!title && !text && !lang && !active_date && !desactivate_date) {
         return res.status(400).json({ error: 'At least one of text, lang, active_date, or desactivate_date is required' });
+    }
+    if (title && title.length > 255) {
+        return res.status(400).json({ error: 'title must be 255 characters or less' });
     }
     if (text && text.length > 1024) {
         return res.status(400).json({ error: 'text must be 1024 characters or less' });
@@ -107,6 +153,7 @@ router.patch('/:id', authenticate, checkPermissions(['NOTAMS_MANAGER']), async (
         const notam = await prisma.notam.update({
             where: { id: parseInt(id) },
             data: {
+                title: title || undefined,
                 text: text || undefined,
                 lang: lang || undefined,
                 active_date: active_date ? new Date(active_date) : undefined,
@@ -114,6 +161,7 @@ router.patch('/:id', authenticate, checkPermissions(['NOTAMS_MANAGER']), async (
             },
             select: {
                 id: true,
+                title: true,
                 text: true,
                 lang: true,
                 active_date: true,
