@@ -90,8 +90,10 @@ model Event {
   open_view_date   DateTime
   close_view_date  DateTime
   text            String   @db.VarChar(1024)
+  description     String   @db.VarChar(2048)
   banner          String   @db.VarChar(255)
   points          Int
+  lang            String   @db.VarChar(4)
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 }

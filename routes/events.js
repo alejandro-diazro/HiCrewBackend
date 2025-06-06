@@ -23,8 +23,10 @@ router.get('/', authenticate, async (req, res) => {
                 open_view_date: true,
                 close_view_date: true,
                 text: true,
+                description: true,
                 banner: true,
                 points: true,
+                lang: true,
                 createdAt: true,
                 updatedAt: true,
             },
@@ -60,8 +62,10 @@ router.get('/active', authenticate, async (req, res) => {
                 open_view_date: true,
                 close_view_date: true,
                 text: true,
+                description: true,
                 banner: true,
                 points: true,
+                lang: true,
                 createdAt: true,
                 updatedAt: true,
             },
@@ -92,8 +96,10 @@ router.get('/all', authenticate, checkPermissions(['EVENT_MANAGER']), async (req
                 open_view_date: true,
                 close_view_date: true,
                 text: true,
+                description: true,
                 banner: true,
                 points: true,
+                lang: true,
                 createdAt: true,
                 updatedAt: true,
             },
@@ -111,19 +117,25 @@ router.get('/all', authenticate, checkPermissions(['EVENT_MANAGER']), async (req
 });
 
 router.post('/', authenticate, checkPermissions(['EVENT_MANAGER']), async (req, res) => {
-    const { time_event_start, time_event_end, open_view_date, close_view_date, text, banner, points } = req.body;
+    const { time_event_start, time_event_end, open_view_date, close_view_date, text, description, banner, points, lang } = req.body;
 
-    if (!time_event_start || !time_event_end || !open_view_date || !close_view_date || !text || !banner || points === undefined) {
+    if (!time_event_start || !time_event_end || !open_view_date || !close_view_date || !text || !description || !banner || points === undefined || !lang) {
         return res.status(400).json({ error: 'All fields are required' });
     }
     if (text.length > 1024) {
         return res.status(400).json({ error: 'text must be 1024 characters or less' });
+    }
+    if (description.length > 2048) {
+        return res.status(400).json({ error: 'description must be 2048 characters or less' });
     }
     if (banner.length > 255) {
         return res.status(400).json({ error: 'banner must be 255 characters or less' });
     }
     if (!Number.isInteger(points) || points < 0) {
         return res.status(400).json({ error: 'points must be a non-negative integer' });
+    }
+    if (lang.length > 4) {
+        return res.status(400).json({ error: 'lang must be 4 characters or less' });
     }
 
     try {
@@ -134,8 +146,10 @@ router.post('/', authenticate, checkPermissions(['EVENT_MANAGER']), async (req, 
                 open_view_date: new Date(open_view_date),
                 close_view_date: new Date(close_view_date),
                 text,
+                description,
                 banner,
                 points,
+                lang,
             },
             select: {
                 id: true,
@@ -144,8 +158,10 @@ router.post('/', authenticate, checkPermissions(['EVENT_MANAGER']), async (req, 
                 open_view_date: true,
                 close_view_date: true,
                 text: true,
+                description: true,
                 banner: true,
                 points: true,
+                lang: true,
                 createdAt: true,
                 updatedAt: true,
             },
@@ -159,19 +175,25 @@ router.post('/', authenticate, checkPermissions(['EVENT_MANAGER']), async (req, 
 
 router.patch('/:id', authenticate, checkPermissions(['EVENT_MANAGER']), async (req, res) => {
     const { id } = req.params;
-    const { time_event_start, time_event_end, open_view_date, close_view_date, text, banner, points } = req.body;
+    const { time_event_start, time_event_end, open_view_date, close_view_date, text, description, banner, points, lang } = req.body;
 
-    if (!time_event_start && !time_event_end && !open_view_date && !close_view_date && !text && !banner && points === undefined) {
+    if (!time_event_start && !time_event_end && !open_view_date && !close_view_date && !text && !description && !banner && points === undefined && !lang) {
         return res.status(400).json({ error: 'At least one field is required' });
     }
     if (text && text.length > 1024) {
         return res.status(400).json({ error: 'text must be 1024 characters or less' });
+    }
+    if (description && description.length > 2048) {
+        return res.status(400).json({ error: 'description must be 2048 characters or less' });
     }
     if (banner && banner.length > 255) {
         return res.status(400).json({ error: 'banner must be 255 characters or less' });
     }
     if (points !== undefined && (!Number.isInteger(points) || points < 0)) {
         return res.status(400).json({ error: 'points must be a non-negative integer' });
+    }
+    if (lang && lang.length > 4) {
+        return res.status(400).json({ error: 'lang must be 4 characters or less' });
     }
 
     try {
@@ -183,8 +205,10 @@ router.patch('/:id', authenticate, checkPermissions(['EVENT_MANAGER']), async (r
                 open_view_date: open_view_date ? new Date(open_view_date) : undefined,
                 close_view_date: close_view_date ? new Date(close_view_date) : undefined,
                 text: text || undefined,
+                description: description || undefined,
                 banner: banner || undefined,
                 points: points !== undefined ? points : undefined,
+                lang: lang || undefined,
             },
             select: {
                 id: true,
@@ -193,8 +217,10 @@ router.patch('/:id', authenticate, checkPermissions(['EVENT_MANAGER']), async (r
                 open_view_date: true,
                 close_view_date: true,
                 text: true,
+                description: true,
                 banner: true,
                 points: true,
+                lang: true,
                 createdAt: true,
                 updatedAt: true,
             },
