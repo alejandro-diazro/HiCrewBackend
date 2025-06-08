@@ -24,6 +24,7 @@ model Pilot {
   pilotPermissions PilotPermission[]
   flights     Flight[]
   reportTours    ReportTour[]
+  staffList        StaffList?       @relation("PilotToStaffList")
 }
 
 model Permission {
@@ -274,4 +275,14 @@ model ReportTour {
   time_arrival   DateTime
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
+}
+
+model StaffList {
+  id               Int      @id @default(autoincrement())
+  pilotId          Int      @unique // Ensure one-to-one by adding @unique
+  nameRolePosition String   @db.VarChar(100)
+  priority         Int
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  pilot            Pilot    @relation("PilotToStaffList", fields: [pilotId], references: [id], onDelete: Cascade)
 }

@@ -23,6 +23,7 @@ const legRoutes = require('./routes/legs');
 const reportTourRoutes = require('./routes/report-tours');
 const permissionsRouter = require('./routes/permissions');
 const configRouter = require('./routes/config');
+const staffListRouter = require('./routes/staff-list');
 
 
 dotenv.config();
@@ -54,6 +55,7 @@ app.use('/legs', legRoutes);
 app.use('/report-tours', reportTourRoutes);
 app.use('/permissions', permissionsRouter);
 app.use('/configs', configRouter);
+app.use('/staff-list', staffListRouter);
 
 
 app.get('/', (req, res) => {
