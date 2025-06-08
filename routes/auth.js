@@ -9,52 +9,127 @@ router.post('/register', async (req, res) => {
     const { email, password, firstName, lastName, birthDate, callsign, ivaoId, vatsimId } = req.body;
 
     try {
-        const existingPilot = await prisma.pilot.findFirst({
-            where: {
-                OR: [{ email }, { ivaoId }, { vatsimId }],
-            },
-        });
-        if (existingPilot) {
-            return res.status(400).json({ error: 'Email, IVAO VID or VATSIM VID is already registered' });
+        if (!email || !password || !firstName || !lastName || !birthDate) {
+            return res.status(400).json({ error: 'All required fields must be provided' });
         }
 
-        const hashedPassword = await bcrypt.hash(password, 10);
+        if (!ivaoId && !vatsimId) {
+            return res.status(400).json({ error: 'At least one of IVAO VID or VATSIM VID must be provided' });
+        }
 
-        const pilot = await prisma.pilot.create({
-            data: {
-                email,
-                password: hashedPassword,
-                firstName,
-                lastName,
-                birthDate: birthDate ? new Date(birthDate) : null,
-                callsign,
-                ivaoId,
-                vatsimId,
-                rank: 'Cadet',
+        // Check ALLOW_PUBLIC and ALLOW_CREATE_ACCOUNT configurations
+        const configs = await prisma.config.findMany({
+            where: {
+                name: { in: ['ALLOW_PUBLIC', 'ALLOW_CREATE_ACCOUNT'] },
             },
-            include: {
-                pilotPermissions: {
-                    include: {
-                        permission: true,
+            select: { name: true, isActive: true },
+        });
+
+        const allowPublic = configs.find(c => c.name === 'ALLOW_PUBLIC')?.isActive || false;
+        const allowCreateAccount = configs.find(c => c.name === 'ALLOW_CREATE_ACCOUNT')?.isActive || false;
+
+        // Case 1: Both ALLOW_PUBLIC and ALLOW_CREATE_ACCOUNT are false
+        if (!allowPublic && !allowCreateAccount) {
+            return res.status(403).json({ error: 'Registration is currently disabled' });
+        }
+
+        // Case 2: Only ALLOW_CREATE_ACCOUNT is true (create RequestJoin)
+        if (!allowPublic && allowCreateAccount) {
+            const existingPilot = await prisma.pilot.findFirst({
+                where: {
+                    OR: [
+                        { email },
+                        { ivaoId: ivaoId || undefined },
+                        { vatsimId: vatsimId || undefined },
+                    ].filter(condition => condition[Object.keys(condition)[0]] !== undefined),
+                },
+            });
+            if (existingPilot) {
+                return res.status(400).json({ error: 'Email, IVAO VID, or VATSIM VID is already registered as a pilot' });
+            }
+
+            const existingRequest = await prisma.requestJoin.findFirst({
+                where: {
+                    OR: [
+                        { email },
+                        { id_ivao: ivaoId || undefined },
+                        { id_vatsim: vatsimId || undefined },
+                    ].filter(condition => condition[Object.keys(condition)[0]] !== undefined),
+                },
+            });
+            if (existingRequest) {
+                return res.status(400).json({ error: 'Email, IVAO VID, or VATSIM VID is already in a pending request' });
+            }
+
+            const requestJoin = await prisma.requestJoin.create({
+                data: {
+                    name: `${firstName} ${lastName}`,
+                    id_ivao: ivaoId || null,
+                    id_vatsim: vatsimId || null,
+                    birthday: new Date(birthDate),
+                    email,
+                    status: 0, // Pending
+                },
+            });
+
+            return res.status(201).json({ message: 'Registration request submitted successfully', requestJoin });
+        }
+
+        // Case 3: Both ALLOW_PUBLIC and ALLOW_CREATE_ACCOUNT are true (create Pilot)
+        if (allowPublic && allowCreateAccount) {
+            const existingPilot = await prisma.pilot.findFirst({
+                where: {
+                    OR: [
+                        { email },
+                        { ivaoId: ivaoId || undefined },
+                        { vatsimId: vatsimId || undefined },
+                    ].filter(condition => condition[Object.keys(condition)[0]] !== undefined),
+                },
+            });
+            if (existingPilot) {
+                return res.status(400).json({ error: 'Email, IVAO VID, or VATSIM VID is already registered' });
+            }
+
+            const hashedPassword = await bcrypt.hash(password, 10);
+
+            const pilot = await prisma.pilot.create({
+                data: {
+                    email,
+                    password: hashedPassword,
+                    firstName,
+                    lastName,
+                    birthDate: new Date(birthDate),
+                    callsign,
+                    ivaoId: ivaoId || null,
+                    vatsimId: vatsimId || null,
+                    rank: 'Cadet',
+                },
+                include: {
+                    pilotPermissions: {
+                        include: {
+                            permission: true,
+                        },
                     },
                 },
-            },
-        });
+            });
 
-        const token = jwt.sign({ id: pilot.id, email: pilot.email }, process.env.JWT_SECRET, {
-            expiresIn: '7d',
-        });
+            const token = jwt.sign({ id: pilot.id, email: pilot.email }, process.env.JWT_SECRET, {
+                expiresIn: '7d',
+            });
 
-        const pilotResponse = {
-            ...pilot,
-            permissions: pilot.pilotPermissions.map((pp) => pp.permission),
-            pilotPermissions: undefined,
-        };
+            const pilotResponse = {
+                ...pilot,
+                permissions: pilot.pilotPermissions.map((pp) => pp.permission),
+                pilotPermissions: undefined,
+            };
 
-        res.status(201).json({ message: 'Register Success', pilot: pilotResponse, token });
+            return res.status(201).json({ message: 'Register Success', pilot: pilotResponse, token });
+        }
+
+        return res.status(403).json({ error: 'Registration requires account creation to be enabled' });
     } catch (error) {
-        console.error('Failed to register:', error);
-        res.status(500).json({ error: 'Failed to register' });
+        console.error('Failed to process registration:', error);
+        res.status(500).json({ error: 'Failed to process registration' });
     }
 });
 
