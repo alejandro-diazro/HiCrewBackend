@@ -23,12 +23,30 @@ async function seed() {
         });
     }
 
-    console.log('Permissions created');
+    const configurations = [
+        { name: 'ALLOW_PUBLIC', description: 'Allow public access to register', isActive: false },
+        { name: 'ALLOW_CHARTER', description: 'Allow charter flights', isActive: false },
+        { name: 'ALLOW_FREE_MODE', description: 'Allow free mode operations', isActive: false },
+        { name: 'ALLOW_MANUAL_REPORT', description: 'Allow manual report submissions', isActive: false },
+        { name: 'ALLOW_ACARS', description: 'Allow ACARS system integration', isActive: false },
+        { name: 'ALLOW_AUTOMATIC_REPORT', description: 'Allow automatic report submissions', isActive: false },
+        { name: 'ALLOW_CREATE_ACCOUNT', description: 'Allow new user account creation', isActive: false },
+    ];
+
+    for (const config of configurations) {
+        await prisma.config.upsert({
+            where: { name: config.name },
+            update: {},
+            create: config,
+        });
+    }
+
+    console.log('Permissions and configurations created');
 }
 
 seed()
     .catch((e) => {
-        console.error('Failed to seed permissions:', e);
+        console.error('Failed to seed permissions and configurations:', e);
         process.exit(1);
     })
     .finally(async () => {

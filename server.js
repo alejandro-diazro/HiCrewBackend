@@ -21,6 +21,8 @@ const requestJoinRoutes = require('./routes/request-joins');
 const tourRoutes = require('./routes/tours');
 const legRoutes = require('./routes/legs');
 const reportTourRoutes = require('./routes/report-tours');
+const permissionsRouter = require('./routes/permissions');
+const configRouter = require('./routes/config');
 
 
 dotenv.config();
@@ -50,6 +52,8 @@ app.use('/request-joins', requestJoinRoutes);
 app.use('/tours', tourRoutes);
 app.use('/legs', legRoutes);
 app.use('/report-tours', reportTourRoutes);
+app.use('/permissions', permissionsRouter);
+app.use('/configs', configRouter);
 
 
 app.get('/', (req, res) => {
