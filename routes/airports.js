@@ -30,14 +30,14 @@ router.get('/', authenticate, async (req, res) => {
 router.post('/', authenticate, checkPermissions(['OPERATIONS_MANAGER']), async (req, res) => {
     const { icao, iata, name, country, latitude, longitude, altitude } = req.body;
 
-    if (!icao || !iata || !name || !country || latitude === undefined || longitude === undefined || altitude === undefined) {
-        return res.status(400).json({ error: 'icao, iata, name, country, latitude, longitude, and altitude are required' });
+    if (!icao || !name || !country || latitude === undefined || longitude === undefined) {
+        return res.status(400).json({ error: 'icao, name, country, latitude, longitude are required' });
     }
     if (icao.length !== 4) {
         return res.status(400).json({ error: 'icao must be exactly 4 characters' });
     }
-    if (iata.length !== 3) {
-        return res.status(400).json({ error: 'iata must be exactly 3 characters' });
+    if (iata !== null && iata !== undefined && iata.length !== 3) {
+        return res.status(400).json({ error: 'iata must be exactly 3 characters or null' });
     }
     if (name.length > 100) {
         return res.status(400).json({ error: 'name must be 100 characters or less' });
@@ -51,20 +51,20 @@ router.post('/', authenticate, checkPermissions(['OPERATIONS_MANAGER']), async (
     if (typeof longitude !== 'number' || longitude < -180 || longitude > 180) {
         return res.status(400).json({ error: 'longitude must be a number between -180 and 180' });
     }
-    if (!Number.isInteger(altitude)) {
-        return res.status(400).json({ error: 'altitude must be an integer' });
+    if (altitude !== null && altitude !== undefined && !Number.isInteger(altitude)) {
+        return res.status(400).json({ error: 'altitude must be an integer or null' });
     }
 
     try {
         const airport = await prisma.airport.create({
             data: {
                 icao,
-                iata,
+                iata: iata ?? null,
                 name,
                 country,
                 latitude,
                 longitude,
-                altitude,
+                altitude: altitude ?? null,
             },
             select: {
                 icao: true,
@@ -92,8 +92,8 @@ router.patch('/:icao', authenticate, checkPermissions(['OPERATIONS_MANAGER']), a
     if (!iata && !name && !country && latitude === undefined && longitude === undefined && altitude === undefined) {
         return res.status(400).json({ error: 'At least one of iata, name, country, latitude, longitude, or altitude is required' });
     }
-    if (iata && iata.length !== 3) {
-        return res.status(400).json({ error: 'iata must be exactly 3 characters' });
+    if (iata !== undefined && iata !== null && iata.length !== 3) {
+        return res.status(400).json({ error: 'iata must be exactly 3 characters or null' });
     }
     if (name && name.length > 100) {
         return res.status(400).json({ error: 'name must be 100 characters or less' });
@@ -107,15 +107,15 @@ router.patch('/:icao', authenticate, checkPermissions(['OPERATIONS_MANAGER']), a
     if (longitude !== undefined && (typeof longitude !== 'number' || longitude < -180 || longitude > 180)) {
         return res.status(400).json({ error: 'longitude must be a number between -180 and 180' });
     }
-    if (altitude !== undefined && !Number.isInteger(altitude)) {
-        return res.status(400).json({ error: 'altitude must be an integer' });
+    if (altitude !== undefined && altitude !== null && !Number.isInteger(altitude)) {
+        return res.status(400).json({ error: 'altitude must be an integer or null' });
     }
 
     try {
         const airport = await prisma.airport.update({
             where: { icao },
             data: {
-                iata: iata || undefined,
+                iata: iata !== undefined ? iata : undefined,
                 name: name || undefined,
                 country: country || undefined,
                 latitude: latitude !== undefined ? latitude : undefined,

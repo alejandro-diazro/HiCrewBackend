@@ -158,12 +158,12 @@ model Rank {
 
 model Airport {
   icao      String   @id @db.VarChar(4)
-  iata      String   @db.VarChar(3)
+  iata      String?   @db.VarChar(3)
   name      String   @db.VarChar(100)
   country   String   @db.VarChar(100)
   latitude  Float
   longitude Float
-  altitude  Int
+  altitude  Int?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   departureRoutes Route[]    @relation("DepartureAirport")
