@@ -12,6 +12,7 @@ router.get('/', async (req, res) => {
                 id: true,
                 name: true,
                 logo: true,
+                tail: true,
                 can_join: true,
                 createdAt: true,
                 updatedAt: true,
@@ -25,9 +26,9 @@ router.get('/', async (req, res) => {
 });
 
 router.post('/', authenticate, checkPermissions(['OPERATIONS_MANAGER']), async (req, res) => {
-    const { name, logo, can_join } = req.body;
+    const { name, logo, tail, can_join } = req.body;
 
-    if (!name || !logo || can_join === undefined) {
+    if (!name || !logo || !tail || can_join === undefined) {
         return res.status(400).json({ error: 'name, logo, and can_join are required' });
     }
     if (name.length > 100) {
@@ -35,6 +36,9 @@ router.post('/', authenticate, checkPermissions(['OPERATIONS_MANAGER']), async (
     }
     if (logo.length > 255) {
         return res.status(400).json({ error: 'logo must be 255 characters or less' });
+    }
+    if (tail.length > 255) {
+        return res.status(400).json({ error: 'tail must be 255 characters or less' });
     }
     if (typeof can_join !== 'boolean') {
         return res.status(400).json({ error: 'can_join must be a boolean' });
@@ -45,12 +49,14 @@ router.post('/', authenticate, checkPermissions(['OPERATIONS_MANAGER']), async (
             data: {
                 name,
                 logo,
+                tail,
                 can_join,
             },
             select: {
                 id: true,
                 name: true,
                 logo: true,
+                tail: true,
                 can_join: true,
                 createdAt: true,
                 updatedAt: true,
@@ -65,9 +71,9 @@ router.post('/', authenticate, checkPermissions(['OPERATIONS_MANAGER']), async (
 
 router.patch('/:id', authenticate, checkPermissions(['OPERATIONS_MANAGER']), async (req, res) => {
     const { id } = req.params;
-    const { name, logo, can_join } = req.body;
+    const { name, logo, tail, can_join } = req.body;
 
-    if (!name && !logo && can_join === undefined) {
+    if (!name && !logo && !tail && can_join === undefined) {
         return res.status(400).json({ error: 'At least one of name, logo, or can_join is required' });
     }
     if (name && name.length > 100) {
@@ -75,6 +81,9 @@ router.patch('/:id', authenticate, checkPermissions(['OPERATIONS_MANAGER']), asy
     }
     if (logo && logo.length > 255) {
         return res.status(400).json({ error: 'logo must be 255 characters or less' });
+    }
+    if (tail && tail.length > 255) {
+        return res.status(400).json({ error: 'tail must be 255 characters or less' });
     }
     if (can_join !== undefined && typeof can_join !== 'boolean') {
         return res.status(400).json({ error: 'can_join must be a boolean' });
@@ -86,12 +95,14 @@ router.patch('/:id', authenticate, checkPermissions(['OPERATIONS_MANAGER']), asy
             data: {
                 name: name || undefined,
                 logo: logo || undefined,
+                tail: tail || undefined,
                 can_join: can_join !== undefined ? can_join : undefined,
             },
             select: {
                 id: true,
                 name: true,
                 logo: true,
+                tail: true,
                 can_join: true,
                 createdAt: true,
                 updatedAt: true,

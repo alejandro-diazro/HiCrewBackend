@@ -131,10 +131,13 @@ model Airline {
   id        Int      @id @default(autoincrement())
   name      String   @db.VarChar(100)
   logo      String   @db.VarChar(255)
+  tail      String   @db.VarChar(255)
   can_join  Boolean  @default(false)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-  routes       Route[]
+  routes    Route[]
+  fleet     Fleet[]
+  hubs      Hub[]
 }
 
 model Medal {
@@ -154,6 +157,7 @@ model Rank {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   fleets    Fleet[]
+  hubs      Hub[]
 }
 
 model Airport {
@@ -170,6 +174,7 @@ model Airport {
   arrivalRoutes   Route[]    @relation("ArrivalAirport")
   departureLegs   Leg[]      @relation("DepartureLeg")
   arrivalLegs     Leg[]      @relation("ArrivalLeg")
+  hubs            Hub[]
 }
 
 model Aircraft {
@@ -189,7 +194,10 @@ model Fleet {
   id         Int      @id @default(autoincrement())
   aircraftId Int
   aircraft   Aircraft @relation(fields: [aircraftId], references: [id])
+  airlineId  Int
+  airline    Airline  @relation(fields: [airlineId], references: [id])
   name       String   @db.VarChar(100)
+  reg        String   @db.VarChar(6)
   state      String   @db.VarChar(50)
   life       Int
   rankId     Int?
@@ -285,4 +293,16 @@ model StaffList {
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
   pilot            Pilot    @relation("PilotToStaffList", fields: [pilotId], references: [id], onDelete: Cascade)
+}
+
+model Hub {
+  id         Int      @id @default(autoincrement())
+  airportId  String   @map("airport_id")
+  airport    Airport  @relation(fields: [airportId], references: [icao])
+  airlineId  Int      @map("airline_id")
+  airline    Airline  @relation(fields: [airlineId], references: [id])
+  rankId     Int?     @map("rank_id")
+  rank       Rank?    @relation(fields: [rankId], references: [id])
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 }
