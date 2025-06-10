@@ -6,8 +6,20 @@ const router = express.Router();
 const prisma = new PrismaClient();
 
 router.get('/', authenticate, async (req, res) => {
+    const { search } = req.query;
+    if (search && typeof search !== 'string') {
+        return res.status(400).json({ error: 'Search parameter must be a string' });
+    }
     try {
         const airports = await prisma.airport.findMany({
+            where: search
+                ? {
+                    OR: [
+                        { icao: { contains: search } },
+                        { name: { contains: search } },
+                    ],
+                }
+                : {},
             select: {
                 icao: true,
                 iata: true,
@@ -19,13 +31,20 @@ router.get('/', authenticate, async (req, res) => {
                 createdAt: true,
                 updatedAt: true,
             },
+            take: 10,
+            orderBy: { icao: 'asc' },
         });
-        res.json(airports);
+        res.json({ data: airports });
     } catch (error) {
-        console.error('Failed to fetch airports:', error);
+        console.error('Failed to fetch airports:', {
+            error: error.message,
+            stack: error.stack,
+            query: req.query,
+        });
         res.status(500).json({ error: 'Failed to fetch airports' });
     }
 });
+
 
 router.post('/', authenticate, checkPermissions(['OPERATIONS_MANAGER']), async (req, res) => {
     const { icao, iata, name, country, latitude, longitude, altitude } = req.body;
