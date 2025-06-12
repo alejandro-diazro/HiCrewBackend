@@ -129,4 +129,89 @@ router.delete('/:id', authenticate, checkPermissions(['OPERATIONS_MANAGER']), as
     }
 });
 
+router.post('/change-airline', authenticate, async (req, res) => {
+    const { airlineId } = req.body;
+    const userId = req.user.id;
+
+    if (!airlineId || !Number.isInteger(airlineId)) {
+        return res.status(400).json({ error: 'airlineId is required and must be an integer' });
+    }
+
+    const airlineExists = await prisma.airline.findUnique({
+        where: { id: airlineId },
+    });
+    if (!airlineExists) {
+        return res.status(400).json({ error: 'Invalid airlineId' });
+    }
+    if (!airlineExists.can_join) {
+        return res.status(403).json({ error: 'This airline does not allow pilots to join' });
+    }
+
+    try {
+        let existingPilotAirline = await prisma.pilotAirline.findUnique({
+            where: { pilotId: userId },
+        });
+
+        const pilotAirline = await prisma.$transaction(async (prisma) => {
+            await prisma.pilotHub.deleteMany({
+                where: { pilotId: userId },
+            });
+
+            if (existingPilotAirline) {
+                return await prisma.pilotAirline.update({
+                    where: { id: existingPilotAirline.id },
+                    data: { airlineId },
+                    select: {
+                        id: true,
+                        pilotId: true,
+                        airlineId: true,
+                        airline: {
+                            select: {
+                                id: true,
+                                name: true,
+                                logo: true,
+                                tail: true,
+                                can_join: true,
+                            },
+                        },
+                        createdAt: true,
+                        updatedAt: true,
+                    },
+                });
+            } else {
+                return await prisma.pilotAirline.create({
+                    data: {
+                        pilotId: userId,
+                        airlineId,
+                    },
+                    select: {
+                        id: true,
+                        pilotId: true,
+                        airlineId: true,
+                        airline: {
+                            select: {
+                                id: true,
+                                name: true,
+                                logo: true,
+                                tail: true,
+                                can_join: true,
+                            },
+                        },
+                        createdAt: true,
+                        updatedAt: true,
+                    },
+                });
+            }
+        });
+
+        return res.status(existingPilotAirline ? 200 : 201).json({
+            message: existingPilotAirline ? 'Airline updated successfully' : 'Airline assigned successfully',
+            pilotAirline,
+        });
+    } catch (error) {
+        console.error('Failed to change airline:', error);
+        res.status(500).json({ error: 'Failed to change airline' });
+    }
+});
+
 module.exports = router;

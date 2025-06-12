@@ -1,4 +1,5 @@
 const { PrismaClient } = require('@prisma/client');
+const bcrypt = require("bcrypt");
 const prisma = new PrismaClient();
 
 async function seed() {
@@ -41,7 +42,19 @@ async function seed() {
         });
     }
 
-    console.log('Permissions and configurations created');
+    const roles = [
+        { name: 'Newbie', hours:0, img:'' }
+    ];
+
+    for (const role of roles) {
+        await prisma.rank.upsert({
+            where: { id: 1 },
+            update: {},
+            create: role,
+        });
+    }
+
+    console.log('Permissions, ranks, configurations created');
 }
 
 seed()

@@ -172,4 +172,96 @@ router.delete('/:id', authenticate, checkPermissions(['OPERATIONS_MANAGER']), as
     }
 });
 
+router.post('/change-hub', authenticate, async (req, res) => {
+    const { hubId } = req.body;
+    const userId = req.user.id;
+
+    if (!hubId || !Number.isInteger(hubId)) {
+        return res.status(400).json({ error: 'hubId is required and must be an integer' });
+    }
+
+    const hubExists = await prisma.hub.findUnique({
+        where: { id: hubId },
+    });
+    if (!hubExists) {
+        return res.status(400).json({ error: 'Invalid hubId' });
+    }
+
+    try {
+        const existingPilotHub = await prisma.pilotHub.findUnique({
+            where: { pilotId: userId },
+        });
+
+        let pilotHub;
+        if (existingPilotHub) {
+            pilotHub = await prisma.pilotHub.update({
+                where: { id: existingPilotHub.id },
+                data: { hubId },
+                select: {
+                    id: true,
+                    pilotId: true,
+                    hubId: true,
+                    hub: {
+                        select: {
+                            id: true,
+                            airport: {
+                                select: {
+                                    icao: true,
+                                    name: true,
+                                    country: true,
+                                },
+                            },
+                            airline: {
+                                select: {
+                                    id: true,
+                                    name: true,
+                                },
+                            },
+                        },
+                    },
+                    createdAt: true,
+                    updatedAt: true,
+                },
+            });
+            return res.json({ message: 'Hub updated successfully', pilotHub });
+        } else {
+            pilotHub = await prisma.pilotHub.create({
+                data: {
+                    pilotId: userId,
+                    hubId,
+                },
+                select: {
+                    id: true,
+                    pilotId: true,
+                    hubId: true,
+                    hub: {
+                        select: {
+                            id: true,
+                            airport: {
+                                select: {
+                                    icao: true,
+                                    name: true,
+                                    country: true,
+                                },
+                            },
+                            airline: {
+                                select: {
+                                    id: true,
+                                    name: true,
+                                },
+                            },
+                        },
+                    },
+                    createdAt: true,
+                    updatedAt: true,
+                },
+            });
+            return res.status(201).json({ message: 'Hub assigned successfully', pilotHub });
+        }
+    } catch (error) {
+        console.error('Failed to change hub:', error);
+        res.status(500).json({ error: 'Failed to change hub' });
+    }
+});
+
 module.exports = router;

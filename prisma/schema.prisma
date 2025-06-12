@@ -18,13 +18,20 @@ model Pilot {
   callsign    String?
   password    String?
   hours       Float            @default(0)
-  rank        String           @default("Cadet")
+  rankId           Int?
+  rank             Rank?            @relation(fields: [rankId], references: [id])
+  locationIcao     String?
+  location         Airport?         @relation(fields: [locationIcao], references: [icao])
+  points           Int              @default(0)
   createdAt   DateTime         @default(now())
   updatedAt   DateTime         @updatedAt
   pilotPermissions PilotPermission[]
   flights     Flight[]
   reportTours    ReportTour[]
+  pilotMedals PilotMedal[]
   staffList        StaffList?       @relation("PilotToStaffList")
+  pilotAirline     PilotAirline?    @relation("PilotToPilotAirline")
+  pilotHub         PilotHub?        @relation("PilotToPilotHub")
 }
 
 model Permission {
@@ -138,6 +145,7 @@ model Airline {
   routes    Route[]
   fleet     Fleet[]
   hubs      Hub[]
+  pilotAirlines PilotAirline[]
 }
 
 model Medal {
@@ -147,6 +155,7 @@ model Medal {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   tours     Tour[]
+  pilotMedals PilotMedal[]
 }
 
 model Rank {
@@ -158,6 +167,7 @@ model Rank {
   updatedAt DateTime @updatedAt
   fleets    Fleet[]
   hubs      Hub[]
+  pilots    Pilot[]
 }
 
 model Airport {
@@ -175,6 +185,7 @@ model Airport {
   departureLegs   Leg[]      @relation("DepartureLeg")
   arrivalLegs     Leg[]      @relation("ArrivalLeg")
   hubs            Hub[]
+  pilots          Pilot[]
 }
 
 model Aircraft {
@@ -305,4 +316,36 @@ model Hub {
   rank       Rank?    @relation(fields: [rankId], references: [id])
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
+  pilotHubs  PilotHub[]
+}
+
+model PilotAirline {
+  id        Int      @id @default(autoincrement())
+  pilotId   Int      @unique
+  airlineId Int
+  pilot     Pilot    @relation("PilotToPilotAirline", fields: [pilotId], references: [id])
+  airline   Airline  @relation(fields: [airlineId], references: [id])
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model PilotHub {
+  id        Int      @id @default(autoincrement())
+  pilotId   Int      @unique
+  hubId     Int
+  pilot     Pilot    @relation("PilotToPilotHub", fields: [pilotId], references: [id])
+  hub       Hub      @relation(fields: [hubId], references: [id])
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model PilotMedal {
+  pilotId   Int      @map("pilot_id")
+  medalId   Int      @map("medal_id")
+  pilot     Pilot    @relation(fields: [pilotId], references: [id], onDelete: Cascade)
+  medal     Medal    @relation(fields: [medalId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@id([pilotId, medalId])
+  @@map("PilotMedals")
 }

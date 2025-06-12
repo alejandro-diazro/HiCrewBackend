@@ -2,6 +2,8 @@ const express = require('express');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const { PrismaClient } = require('@prisma/client');
+const authenticate = require("../middleware/auth");
+const checkPermissions = require("../middleware/permissions");
 const router = express.Router();
 const prisma = new PrismaClient();
 
@@ -92,6 +94,13 @@ router.post('/register', async (req, res) => {
 
             const hashedPassword = await bcrypt.hash(password, 10);
 
+            const rank = await prisma.rank.findUnique({
+                where: { id: 1 },
+            });
+            if (!rank) {
+                return res.status(500).json({ error: 'Default rank (ID: 1) not found in the database' });
+            }
+
             const pilot = await prisma.pilot.create({
                 data: {
                     email,
@@ -102,7 +111,8 @@ router.post('/register', async (req, res) => {
                     callsign,
                     ivaoId: ivaoId || null,
                     vatsimId: vatsimId || null,
-                    rank: 'Cadet',
+                    rankId: 1,
+                    points: 0,
                 },
                 include: {
                     pilotPermissions: {
@@ -110,6 +120,8 @@ router.post('/register', async (req, res) => {
                             permission: true,
                         },
                     },
+                    rank: true,
+                    location: true,
                 },
             });
 
@@ -189,6 +201,54 @@ router.get('/me', async (req, res) => {
                         permission: true,
                     },
                 },
+                pilotAirline: {
+                    select: {
+                        airline: {
+                            select: {
+                                id: true,
+                                name: true,
+                                logo: true,
+                                tail: true,
+                                can_join: true,
+                            },
+                        },
+                    },
+                },
+                pilotHub: {
+                    select: {
+                        hub: {
+                            include: {
+                                airline: {
+                                    select: {
+                                        id: true,
+                                        name: true,
+                                    },
+                                },
+                                airport: {
+                                    select: {
+                                        icao: true,
+                                        name: true,
+                                        country: true,
+                                    },
+                                },
+                            },
+                        },
+                    },
+                },
+                pilotMedals: {
+                    select: {
+                        medal: {
+                            select: {
+                                id: true,
+                                img: true,
+                                text: true,
+                                createdAt: true,
+                                updatedAt: true,
+                            },
+                        },
+                    },
+                },
+                rank: true,
             },
         });
 
@@ -199,7 +259,13 @@ router.get('/me', async (req, res) => {
         const pilotResponse = {
             ...pilot,
             permissions: pilot.pilotPermissions.map((pp) => pp.permission),
+            airline: pilot.pilotAirline?.airline || null,
+            hub: pilot.pilotHub?.hub || null,
+            medals: pilot.pilotMedals.map((pm) => pm.medal),
             pilotPermissions: undefined,
+            pilotAirline: undefined,
+            pilotHub: undefined,
+            pilotMedals: undefined,
         };
 
         res.json({ pilot: pilotResponse });
@@ -208,5 +274,56 @@ router.get('/me', async (req, res) => {
         res.status(401).json({ error: 'Invalid token' });
     }
 });
+
+router.delete('/delete-me', authenticate, async (req, res) => {
+    const userId = req.user.id;
+
+    try {
+        const pilot = await prisma.pilot.findUnique({
+            where: { id: userId },
+        });
+
+        if (!pilot) {
+            return res.status(404).json({ error: 'Pilot not found' });
+        }
+
+        await prisma.pilot.delete({
+            where: { id: userId },
+        });
+
+        res.json({ message: 'Account deleted successfully' });
+    } catch (error) {
+        console.error('Failed to delete account:', error);
+        res.status(500).json({ error: 'Failed to delete account' });
+    }
+});
+
+router.delete('/delete/:pilotId', authenticate, checkPermissions(['USER_MANAGER']), async (req, res) => {
+    const { pilotId } = req.params;
+
+    if (!Number.isInteger(parseInt(pilotId))) {
+        return res.status(400).json({ error: 'pilotId must be an integer' });
+    }
+
+    try {
+        const pilot = await prisma.pilot.findUnique({
+            where: { id: parseInt(pilotId) },
+        });
+
+        if (!pilot) {
+            return res.status(404).json({ error: 'Pilot not found' });
+        }
+
+        await prisma.pilot.delete({
+            where: { id: parseInt(pilotId) },
+        });
+
+        res.json({ message: 'Pilot account deleted successfully' });
+    } catch (error) {
+        console.error('Failed to delete pilot account:', error);
+        res.status(500).json({ error: 'Failed to delete pilot account' });
+    }
+});
+
 
 module.exports = router;
