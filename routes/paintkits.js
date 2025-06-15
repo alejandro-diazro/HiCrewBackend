@@ -10,9 +10,20 @@ router.get('/', authenticate, async (req, res) => {
         const paintkits = await prisma.paintkit.findMany({
             select: {
                 id: true,
-                simulatorId: true,
                 url: true,
+                simulatorId: true,
+                simulator: {
+                    select: {
+                        name: true,
+                    },
+                },
                 aircraftId: true,
+                aircraft: {
+                    select: {
+                        icao: true,
+                        manufacturer: true,
+                    },
+                },
                 developer: true,
                 createdAt: true,
                 updatedAt: true,

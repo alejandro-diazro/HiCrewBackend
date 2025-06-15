@@ -182,51 +182,23 @@ router.post('/change-hub', authenticate, async (req, res) => {
 
     const hubExists = await prisma.hub.findUnique({
         where: { id: hubId },
+        select: {
+            id: true,
+            airportId: true,
+        },
     });
     if (!hubExists) {
         return res.status(400).json({ error: 'Invalid hubId' });
     }
 
     try {
-        const existingPilotHub = await prisma.pilotHub.findUnique({
-            where: { pilotId: userId },
-        });
-
-        let pilotHub;
-        if (existingPilotHub) {
-            pilotHub = await prisma.pilotHub.update({
-                where: { id: existingPilotHub.id },
-                data: { hubId },
-                select: {
-                    id: true,
-                    pilotId: true,
-                    hubId: true,
-                    hub: {
-                        select: {
-                            id: true,
-                            airport: {
-                                select: {
-                                    icao: true,
-                                    name: true,
-                                    country: true,
-                                },
-                            },
-                            airline: {
-                                select: {
-                                    id: true,
-                                    name: true,
-                                },
-                            },
-                        },
-                    },
-                    createdAt: true,
-                    updatedAt: true,
+        const [pilotHub] = await prisma.$transaction([
+            prisma.pilotHub.upsert({
+                where: { pilotId: userId },
+                update: {
+                    hubId,
                 },
-            });
-            return res.json({ message: 'Hub updated successfully', pilotHub });
-        } else {
-            pilotHub = await prisma.pilotHub.create({
-                data: {
+                create: {
                     pilotId: userId,
                     hubId,
                 },
@@ -255,12 +227,67 @@ router.post('/change-hub', authenticate, async (req, res) => {
                     createdAt: true,
                     updatedAt: true,
                 },
-            });
-            return res.status(201).json({ message: 'Hub assigned successfully', pilotHub });
-        }
+            }),
+
+            prisma.pilot.update({
+                where: { id: userId },
+                data: {
+                    locationIcao: hubExists.airportId,
+                },
+                select: {
+                    id: true,
+                    locationIcao: true,
+                },
+            }),
+        ]);
+
+        res.status(pilotHub.createdAt === pilotHub.updatedAt ? 201 : 200).json({
+            message: pilotHub.createdAt === pilotHub.updatedAt ? 'Hub assigned successfully' : 'Hub updated successfully',
+            pilotHub,
+        });
     } catch (error) {
         console.error('Failed to change hub:', error);
         res.status(500).json({ error: 'Failed to change hub' });
+    }
+});
+
+router.post('/change-location', authenticate, async (req, res) => {
+    const { locationIcao } = req.body;
+    const userId = req.user.id;
+
+    if (!locationIcao || typeof locationIcao !== 'string' || locationIcao.length > 4) {
+        return res.status(400).json({ error: 'locationIcao is required and must be a valid ICAO code (4 characters or less)' });
+    }
+
+    const airportExists = await prisma.airport.findUnique({
+        where: { icao: locationIcao },
+    });
+    if (!airportExists) {
+        return res.status(400).json({ error: 'Invalid locationIcao' });
+    }
+
+    try {
+        const pilot = await prisma.pilot.update({
+            where: { id: userId },
+            data: { locationIcao },
+            select: {
+                id: true,
+                locationIcao: true,
+                location: {
+                    select: {
+                        icao: true,
+                        name: true,
+                        country: true,
+                    },
+                },
+                createdAt: true,
+                updatedAt: true,
+            },
+        });
+        res.json({ message: 'Location updated successfully', pilot });
+    } catch (error) {
+        console.error('Failed to change location:', error);
+        res.status(500).json({ error: 'Failed to change location' });
     }
 });
 
