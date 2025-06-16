@@ -4,9 +4,10 @@ const jwt = require('jsonwebtoken');
 const { PrismaClient } = require('@prisma/client');
 const authenticate = require("../middleware/auth");
 const checkPermissions = require("../middleware/permissions");
-const {sendRegistrationRequestEmail, sendWelcomeEmail} = require("../utils/email");
+const {sendRegistrationRequestEmail, sendWelcomeEmail, sendPasswordResetEmail} = require("../utils/email");
 const router = express.Router();
 const prisma = new PrismaClient();
+const crypto = require('crypto');
 
 router.post('/register', async (req, res) => {
     const { email, password, firstName, lastName, birthDate, callsign, ivaoId, vatsimId } = req.body;
@@ -338,5 +339,99 @@ router.delete('/delete/:pilotId', authenticate, checkPermissions(['USER_MANAGER'
     }
 });
 
+router.post('/forgot-password', async (req, res) => {
+    const { email } = req.body;
+
+    try {
+        if (!email) {
+            return res.status(400).json({ error: 'Email is required' });
+        }
+
+        const pilot = await prisma.pilot.findUnique({
+            where: { email },
+        });
+
+        if (!pilot) {
+            // Don't reveal if email exists or not for security
+            return res.status(200).json({ message: 'If the email exists, a reset link has been sent' });
+        }
+
+        // Generate reset token
+        const resetToken = crypto.randomBytes(32).toString('hex');
+        const resetTokenHash = await bcrypt.hash(resetToken, 10);
+        const resetTokenExpires = new Date(Date.now() + 3600000); // 1 hour from now
+
+        // Store reset token in database
+        await prisma.pilot.update({
+            where: { id: pilot.id },
+            data: {
+                resetPasswordToken: resetTokenHash,
+                resetPasswordExpires: resetTokenExpires,
+            },
+        });
+
+        try {
+            await sendPasswordResetEmail({
+                email,
+                firstName: pilot.firstName,
+                lastName: pilot.lastName,
+                resetToken,
+            });
+        } catch (emailError) {
+            console.error('Failed to send password reset email:', emailError);
+            // Don't fail the request if email fails, just log it
+        }
+
+        res.status(200).json({ message: 'If the email exists, a reset link has been sent' });
+    } catch (error) {
+        console.error('Failed to process password reset request:', error);
+        res.status(500).json({ error: 'Failed to process password reset request' });
+    }
+});
+
+// Reset password
+router.post('/reset-password', async (req, res) => {
+    const { token, newPassword } = req.body;
+
+    try {
+        if (!token || !newPassword) {
+            return res.status(400).json({ error: 'Token and new password are required' });
+        }
+
+        // Find pilot with matching reset token
+        const pilot = await prisma.pilot.findFirst({
+            where: {
+                resetPasswordToken: { not: null },
+                resetPasswordExpires: { gt: new Date() },
+            },
+        });
+
+        if (!pilot) {
+            return res.status(400).json({ error: 'Invalid or expired reset token' });
+        }
+
+        // Verify token
+        const isValidToken = await bcrypt.compare(token, pilot.resetPasswordToken);
+        if (!isValidToken) {
+            return res.status(400).json({ error: 'Invalid or expired reset token' });
+        }
+
+        // Update password and clear reset token
+        const hashedPassword = await bcrypt.hash(newPassword, 10);
+        await prisma.pilot.update({
+            where: { id: pilot.id },
+            data: {
+                password: hashedPassword,
+                resetPasswordToken: null,
+                resetPasswordExpires: null,
+            },
+        });
+
+        res.json({ message: 'Password reset successfully' });
+    } catch (error) {
+        console.error('Failed to reset password:', error);
+        res.status(500).json({ error: 'Failed to reset password' });
+    }
+});
 
 module.exports = router;

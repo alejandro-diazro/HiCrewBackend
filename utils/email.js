@@ -44,7 +44,17 @@ const sendWelcomeEmail = async ({ email, firstName, lastName }) => {
     await sendEmail({ to: email, subject, text, html });
 };
 
+const sendPasswordResetEmail = async ({ email, firstName, lastName, resetToken }) => {
+    const subject = 'HiCrew Password Reset Request';
+    const resetUrl = `${process.env.FRONTEND_URL}/reset-password?token=${resetToken}`;
+    const text = `Dear ${firstName} ${lastName},\n\nYou have requested to reset your password. Please click the following link to reset your password:\n${resetUrl}\n\nThis link will expire in 1 hour.\n\nIf you did not request this, please ignore this email.\n\nThank you,\nHiCrew Team`;
+    const html = `<p>Dear ${firstName} ${lastName},</p><p>You have requested to reset your password. Please click the following link to reset your password:</p><p><a href="${resetUrl}">Reset Password</a></p><p>This link will expire in 1 hour.</p><p>If you did not request this, please ignore this email.</p><p>Thank you,<br>HiCrew Team</p>`;
+
+    await sendEmail({ to: email, subject, text, html });
+};
+
 module.exports = {
     sendRegistrationRequestEmail,
     sendWelcomeEmail,
+    sendPasswordResetEmail,
 };

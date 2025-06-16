@@ -32,6 +32,8 @@ model Pilot {
   staffList        StaffList?       @relation("PilotToStaffList")
   pilotAirline     PilotAirline?    @relation("PilotToPilotAirline")
   pilotHub         PilotHub?        @relation("PilotToPilotHub")
+  resetPasswordToken   String?
+  resetPasswordExpires DateTime?
 }
 
 model Permission {
