@@ -4,6 +4,7 @@ const jwt = require('jsonwebtoken');
 const { PrismaClient } = require('@prisma/client');
 const authenticate = require("../middleware/auth");
 const checkPermissions = require("../middleware/permissions");
+const {sendRegistrationRequestEmail, sendWelcomeEmail} = require("../utils/email");
 const router = express.Router();
 const prisma = new PrismaClient();
 
@@ -74,6 +75,12 @@ router.post('/register', async (req, res) => {
                 },
             });
 
+            try {
+                await sendRegistrationRequestEmail({ email, firstName, lastName });
+            } catch (emailError) {
+                console.error('Failed to send registration request email:', emailError);
+            }
+
             return res.status(201).json({ message: 'Registration request submitted successfully', requestJoin });
         }
 
@@ -134,6 +141,12 @@ router.post('/register', async (req, res) => {
                 permissions: pilot.pilotPermissions.map((pp) => pp.permission),
                 pilotPermissions: undefined,
             };
+
+            try {
+                await sendWelcomeEmail({ email, firstName, lastName });
+            } catch (emailError) {
+                console.error('Failed to send welcome email:', emailError);
+            }
 
             return res.status(201).json({ message: 'Register Success', pilot: pilotResponse, token });
         }
