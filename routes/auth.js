@@ -352,16 +352,13 @@ router.post('/forgot-password', async (req, res) => {
         });
 
         if (!pilot) {
-            // Don't reveal if email exists or not for security
             return res.status(200).json({ message: 'If the email exists, a reset link has been sent' });
         }
 
-        // Generate reset token
         const resetToken = crypto.randomBytes(32).toString('hex');
         const resetTokenHash = await bcrypt.hash(resetToken, 10);
-        const resetTokenExpires = new Date(Date.now() + 3600000); // 1 hour from now
+        const resetTokenExpires = new Date(Date.now() + 3600000);
 
-        // Store reset token in database
         await prisma.pilot.update({
             where: { id: pilot.id },
             data: {
@@ -379,7 +376,6 @@ router.post('/forgot-password', async (req, res) => {
             });
         } catch (emailError) {
             console.error('Failed to send password reset email:', emailError);
-            // Don't fail the request if email fails, just log it
         }
 
         res.status(200).json({ message: 'If the email exists, a reset link has been sent' });
@@ -389,7 +385,6 @@ router.post('/forgot-password', async (req, res) => {
     }
 });
 
-// Reset password
 router.post('/reset-password', async (req, res) => {
     const { token, newPassword } = req.body;
 
@@ -398,7 +393,6 @@ router.post('/reset-password', async (req, res) => {
             return res.status(400).json({ error: 'Token and new password are required' });
         }
 
-        // Find pilot with matching reset token
         const pilot = await prisma.pilot.findFirst({
             where: {
                 resetPasswordToken: { not: null },
@@ -410,13 +404,11 @@ router.post('/reset-password', async (req, res) => {
             return res.status(400).json({ error: 'Invalid or expired reset token' });
         }
 
-        // Verify token
         const isValidToken = await bcrypt.compare(token, pilot.resetPasswordToken);
         if (!isValidToken) {
             return res.status(400).json({ error: 'Invalid or expired reset token' });
         }
 
-        // Update password and clear reset token
         const hashedPassword = await bcrypt.hash(newPassword, 10);
         await prisma.pilot.update({
             where: { id: pilot.id },
