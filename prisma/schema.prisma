@@ -56,15 +56,26 @@ model PilotPermission {
 }
 
 model Flight {
-  id        Int      @id @default(autoincrement())
-  pilotId   Int
-  pilot     Pilot    @relation(fields: [pilotId], references: [id])
-  route     String
-  aircraft  String
-  status    String   @default("Pending")
-  pirep     String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id            Int      @id @default(autoincrement())
+  pilotId       Int
+  pilot         Pilot    @relation(fields: [pilotId], references: [id])
+  status        Int      // 1: Pending, 2: Accepted, 3: Rejected
+  type          Int      // 1: Manual, 2: Regular, 3: Charter, 4: ACARS, 5: Free Mode
+  aircraft      String   // Text field for aircraft
+  departureIcao String
+  departure     Airport  @relation("DepartureFlight", fields: [departureIcao], references: [icao])
+  arrivalIcao   String
+  arrival       Airport  @relation("ArrivalFlight", fields: [arrivalIcao], references: [icao])
+  routeId       Int?     // Optional relation to Route
+  route         Route?   @relation(fields: [routeId], references: [id])
+  fleetId       Int?     // Optional relation to Fleet
+  fleet         Fleet?   @relation(fields: [fleetId], references: [id])
+  startFlight   DateTime?
+  closeFlight   DateTime?
+  pirep         String?
+  comment       String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 }
 
 model Rules {
@@ -188,6 +199,8 @@ model Airport {
   arrivalLegs     Leg[]      @relation("ArrivalLeg")
   hubs            Hub[]
   pilots          Pilot[]
+  departureFlights Flight[]  @relation("DepartureFlight")
+  arrivalFlights   Flight[]  @relation("ArrivalFlight")
 }
 
 model Aircraft {
@@ -218,6 +231,7 @@ model Fleet {
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
   routes       Route[]
+  flights    Flight[]
 }
 
 model Paintkit {
@@ -244,6 +258,7 @@ model Route {
   airline       Airline    @relation(fields: [airlineId], references: [id])
   createdAt     DateTime   @default(now())
   updatedAt     DateTime   @updatedAt
+  flights    Flight[]
 }
 
 model RequestJoin {

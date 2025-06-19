@@ -26,6 +26,7 @@ const configRouter = require('./routes/config');
 const staffListRouter = require('./routes/staff-list');
 const hubRouter = require('./routes/hub');
 const pilotMedalRouter = require('./routes/pilotMedals');
+const flightRouter = require('./routes/flight');
 
 dotenv.config();
 
@@ -59,6 +60,7 @@ app.use('/configs', configRouter);
 app.use('/staff-list', staffListRouter);
 app.use('/hubs',hubRouter);
 app.use('/pilot-medals',pilotMedalRouter);
+app.use('/flights', flightRouter);
 
 
 app.get('/', (req, res) => {
