@@ -426,4 +426,140 @@ router.post('/reset-password', async (req, res) => {
     }
 });
 
+router.post('/update-callsign', authenticate, async (req, res) => {
+    const { callsign } = req.body;
+    const userId = req.user.id;
+    const airlineCode = process.env.ICAO_AIRLINE || 'HCW';
+
+    try {
+        const config = await prisma.config.findUnique({
+            where: { name: 'ALLOW_SELECTION_CALLSIGN' },
+            select: { isActive: true },
+        });
+
+        const allowSelectionCallsign = config?.isActive || false;
+        let finalCallsign;
+
+        if (allowSelectionCallsign) {
+            if (!callsign) {
+                return res.status(400).json({ error: 'Callsign number is required' });
+            }
+
+            const callsignNumberRegex = /^[0-9]{3}$/;
+            if (!callsignNumberRegex.test(callsign)) {
+                return res.status(400).json({ error: 'Callsign must be exactly 3 digits' });
+            }
+
+            finalCallsign = `${airlineCode}${callsign}`;
+        } else {
+            const pilots = await prisma.pilot.findMany({
+                where: { callsign: { not: null } },
+                select: { callsign: true },
+                orderBy: { callsign: 'asc' },
+            });
+
+            const callsignNumbers = pilots
+                .map((pilot) => parseInt(pilot.callsign.replace(airlineCode, '')))
+                .filter((num) => !isNaN(num))
+                .sort((a, b) => a - b);
+
+            let nextNumber = 1;
+            while (callsignNumbers.includes(nextNumber)) {
+                nextNumber++;
+            }
+
+            finalCallsign = `${airlineCode}${nextNumber.toString().padStart(3, '0')}`;
+        }
+
+        const existingPilot = await prisma.pilot.findFirst({
+            where: {
+                callsign: finalCallsign,
+                NOT: { id: userId },
+            },
+        });
+
+        if (existingPilot) {
+            return res.status(400).json({ error: 'Callsign is already in use' });
+        }
+
+        const pilot = await prisma.pilot.update({
+            where: { id: userId },
+            data: { callsign: finalCallsign },
+            include: {
+                pilotPermissions: {
+                    include: { permission: true },
+                },
+                rank: true,
+                location: true,
+            },
+        });
+
+        const pilotResponse = {
+            ...pilot,
+            permissions: pilot.pilotPermissions.map((pp) => pp.permission),
+            pilotPermissions: undefined,
+        };
+
+        res.json({ message: 'Callsign updated successfully', pilot: pilotResponse });
+    } catch (error) {
+        console.error('Failed to update callsign:', error);
+        res.status(500).json({ error: 'Failed to update callsign' });
+    }
+});
+
+router.get('/next-callsign', authenticate, async (req, res) => {
+    try {
+        const config = await prisma.config.findUnique({
+            where: { name: 'ALLOW_SELECTION_CALLSIGN' },
+            select: { isActive: true },
+        });
+
+        const allowSelectionCallsign = config?.isActive || false;
+        const airlineCode = process.env.ICAO_AIRLINE || 'HCW';
+
+        if (allowSelectionCallsign) {
+            const pilots = await prisma.pilot.findMany({
+                where: { callsign: { not: null } },
+                select: { callsign: true },
+            });
+
+            const usedCallsignNumbers = pilots
+                .map((pilot) => parseInt(pilot.callsign.replace(airlineCode, '')))
+                .filter((num) => !isNaN(num));
+
+            const availableCallsigns = [];
+            for (let i = 1; i <= 999; i++) {
+                const numberStr = i.toString().padStart(3, '0');
+                if (!usedCallsignNumbers.includes(i)) {
+                    availableCallsigns.push(`${numberStr}`);
+                }
+            }
+
+            return res.status(200).json({ allowSelection: true, availableCallsigns });
+        }
+
+        const pilots = await prisma.pilot.findMany({
+            where: { callsign: { not: null } },
+            select: { callsign: true },
+            orderBy: { callsign: 'asc' },
+        });
+
+        const callsignNumbers = pilots
+            .map((pilot) => parseInt(pilot.callsign.replace(airlineCode, '')))
+            .filter((num) => !isNaN(num))
+            .sort((a, b) => a - b);
+
+        let nextNumber = 1;
+        while (callsignNumbers.includes(nextNumber)) {
+            nextNumber++;
+        }
+
+        const nextCallsign = `${airlineCode}${nextNumber.toString().padStart(3, '0')}`;
+        return res.status(200).json({ allowSelection: false, nextCallsign });
+    } catch (error) {
+        console.error('Failed to fetch next callsign:', error);
+        res.status(500).json({ error: 'Failed to fetch next callsign' });
+    }
+});
+
 module.exports = router;

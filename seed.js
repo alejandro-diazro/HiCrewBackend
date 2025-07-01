@@ -26,13 +26,14 @@ async function seed() {
     }
 
     const configurations = [
-        { name: 'ALLOW_PUBLIC', description: 'Allow public access to register', isActive: false },
+        { name: 'ALLOW_PUBLIC', description: 'Allow public access to register', isActive: true },
         { name: 'ALLOW_CHARTER', description: 'Allow charter flights', isActive: false },
         { name: 'ALLOW_FREE_MODE', description: 'Allow free mode operations', isActive: false },
         { name: 'ALLOW_MANUAL_REPORT', description: 'Allow manual report submissions', isActive: false },
         { name: 'ALLOW_ACARS', description: 'Allow ACARS system integration', isActive: false },
         { name: 'ALLOW_AUTOMATIC_REPORT', description: 'Allow automatic report submissions', isActive: false },
-        { name: 'ALLOW_CREATE_ACCOUNT', description: 'Allow new user account creation', isActive: false },
+        { name: 'ALLOW_CREATE_ACCOUNT', description: 'Allow new user account creation', isActive: true },
+        { name: 'ALLOW_SELECTION_CALLSIGN', description: 'Allows the user to choose their callsign ', isActive: true}
     ];
 
     for (const config of configurations) {

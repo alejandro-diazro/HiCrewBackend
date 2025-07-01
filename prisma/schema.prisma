@@ -61,7 +61,8 @@ model Flight {
   pilot         Pilot    @relation(fields: [pilotId], references: [id])
   status        Int      // 1: Pending, 2: Accepted, 3: Rejected
   type          Int      // 1: Manual, 2: Regular, 3: Charter, 4: ACARS, 5: Free Mode
-  aircraft      String   // Text field for aircraft
+  callsign      String
+  aircraft      String
   departureIcao String
   departure     Airport  @relation("DepartureFlight", fields: [departureIcao], references: [icao])
   arrivalIcao   String
@@ -73,6 +74,7 @@ model Flight {
   startFlight   DateTime?
   closeFlight   DateTime?
   pirep         String?
+  network       String?
   comment       String?
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt

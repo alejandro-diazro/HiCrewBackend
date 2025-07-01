@@ -15,6 +15,7 @@ router.get('/my-flights', authenticate, async (req, res) => {
                 id: true,
                 status: true,
                 type: true,
+                callsign: true,
                 aircraft: true,
                 departureIcao: true,
                 arrivalIcao: true,
@@ -54,6 +55,7 @@ router.get('/status/:number', authenticate, async (req, res) => {
                 id: true,
                 status: true,
                 type: true,
+                callsign: true,
                 aircraft: true,
                 departureIcao: true,
                 arrivalIcao: true,
@@ -138,7 +140,7 @@ router.put('/:id/status', authenticate, checkPermissions(['VALIDATOR_MANAGER']),
 const createFlightEndpoint = (type) => {
     router.post(`/report/${type.toLowerCase()}`, authenticate, async (req, res) => {
         try {
-            const { aircraft, departureIcao, arrivalIcao, routeId, fleetId, startFlight, pirep } = req.body;
+            const { callsign,aircraft, departureIcao, arrivalIcao, routeId, fleetId, startFlight, closeFlight, pirep } = req.body;
             const typeMap = {
                 manual: 1,
                 regular: 2,
@@ -156,12 +158,14 @@ const createFlightEndpoint = (type) => {
                     pilotId: req.user.id,
                     status: 1,
                     type: typeMap[type.toLowerCase()],
+                    callsign,
                     aircraft,
                     departureIcao,
                     arrivalIcao,
                     routeId: routeId ? parseInt(routeId) : null,
                     fleetId: fleetId ? parseInt(fleetId) : null,
                     startFlight: startFlight ? new Date(startFlight) : null,
+                    closeFlight: closeFlight ? new Date(closeFlight) : null,
                     pirep: pirep || null
                 },
                 select: {
@@ -169,9 +173,11 @@ const createFlightEndpoint = (type) => {
                     status: true,
                     type: true,
                     aircraft: true,
+                    callsign: true,
                     departureIcao: true,
                     arrivalIcao: true,
-                    startFlight: true
+                    startFlight: true,
+                    closeFlight: true
                 }
             });
             res.status(201).json(flight);
