@@ -28,6 +28,7 @@ async function seed() {
     const configurations = [
         { name: 'ALLOW_PUBLIC', description: 'Allow public access to register', isActive: true },
         { name: 'ALLOW_CHARTER', description: 'Allow charter flights', isActive: false },
+        { name: 'ALLOW_REGULAR', description: 'Allows regular flights ', isActive: false},
         { name: 'ALLOW_FREE_MODE', description: 'Allow free mode operations', isActive: false },
         { name: 'ALLOW_MANUAL_REPORT', description: 'Allow manual report submissions', isActive: false },
         { name: 'ALLOW_ACARS', description: 'Allow ACARS system integration', isActive: false },
