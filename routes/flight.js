@@ -138,6 +138,98 @@
         }
     });
 
+    router.delete('/:id', authenticate, async (req, res) => {
+        try {
+            const flightId = parseInt(req.params.id);
+
+            const flight = await prisma.flight.findUnique({
+                where: { id: flightId },
+                select: {
+                    pilotId: true,
+                    status: true,
+                    startFlight: true,
+                    closeFlight: true,
+                    fleetId: true
+                }
+            });
+
+            if (!flight || flight.pilotId !== req.user.id) {
+                return res.status(404).json({ error: 'Flight not found or not authorized' });
+            }
+
+            if (flight.status !== 1) {
+                return res.status(400).json({ error: 'Only pending flights can be deleted' });
+            }
+
+            if (!(flight.startFlight === null && flight.closeFlight === null) &&
+                !(flight.startFlight !== null && flight.closeFlight === null)) {
+                return res.status(400).json({ error: 'Flight does not meet deletion criteria' });
+            }
+
+            if (flight.fleetId) {
+                await prisma.fleet.update({
+                    where: { id: flight.fleetId },
+                    data: { state: 0 }
+                });
+            }
+
+            await prisma.flight.delete({
+                where: { id: flightId }
+            });
+
+            res.status(204).send();
+        } catch (error) {
+            console.error('Failed to delete flight:', error);
+            res.status(500).json({ error: 'Failed to delete flight' });
+        }
+    });
+
+    router.get('/flight-active', authenticate, async (req, res) => {
+        try {
+            const flights = await prisma.flight.findMany({
+                where: {
+                    pilotId: req.user.id,
+                    status: 1,
+                    OR: [
+                        {
+                            startFlight: null,
+                            closeFlight: null
+                        },
+                        {
+                            startFlight: { not: null },
+                            closeFlight: null
+                        }
+                    ]
+                },
+                select: {
+                    id: true,
+                    status: true,
+                    type: true,
+                    callsign: true,
+                    aircraft: true,
+                    departureIcao: true,
+                    arrivalIcao: true,
+                    startFlight: true,
+                    closeFlight: true,
+                    pirep: true,
+                    comment: true,
+                    createdAt: true,
+                    network: true,
+                    departure: {
+                        select: { icao: true, name: true }
+                    },
+                    arrival: {
+                        select: { icao: true, name: true }
+                    }
+                }
+            });
+            res.json(flights);
+        } catch (error) {
+            console.error('Failed to fetch active flights:', error);
+            res.status(500).json({ error: 'Failed to fetch active flights' });
+        }
+    });
+
     const createFlightEndpoint = (type) => {
         router.post(`/report/${type.toLowerCase()}`, authenticate, async (req, res) => {
             try {
@@ -151,9 +243,11 @@
                 };
 
                 const isFreeMode = type.toLowerCase() === 'free-mode';
+                const isCharter = type.toLowerCase() === 'charter';
 
                 let finalCallsign = callsign;
                 let finalAircraft = aircraft;
+
                 if (isFreeMode) {
                     const pilot = await prisma.pilot.findUnique({
                         where: { id: req.user.id },
@@ -167,6 +261,29 @@
                     finalAircraft= "ZZZZ";
                 }
 
+                if (isCharter) {
+                    if (!fleetId) {
+                        return res.status(400).json({ error: 'Fleet ID is required for charter flights' });
+                    }
+
+                    const fleet = await prisma.fleet.findUnique({
+                        where: { id: parseInt(fleetId) },
+                        select: { state: true, locationIcao: true }
+                    });
+
+                    if (!fleet) {
+                        return res.status(400).json({ error: 'Invalid fleet ID' });
+                    }
+
+                    if (fleet.state !== 0) {
+                        return res.status(400).json({ error: 'Selected aircraft is not available' });
+                    }
+
+                    await prisma.fleet.update({
+                        where: { id: parseInt(fleetId) },
+                        data: { state: 1 }
+                    });
+                }
 
                 const flight = await prisma.flight.create({
                     data: {
@@ -197,6 +314,14 @@
                         network: true,
                     }
                 });
+
+                if (type.toLowerCase() === 'manual') {
+                    await prisma.pilot.update({
+                        where: { id: req.user.id },
+                        data: { locationIcao: flight.arrivalIcao }
+                    });
+                }
+
                 res.status(201).json(flight);
             } catch (error) {
                 console.error(`Failed to create ${type} flight:`, error);

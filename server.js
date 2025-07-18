@@ -28,6 +28,8 @@ const hubRouter = require('./routes/hub');
 const pilotMedalRouter = require('./routes/pilotMedals');
 const flightRouter = require('./routes/flight');
 
+require('./cronJobs');
+
 dotenv.config();
 
 const app = express();

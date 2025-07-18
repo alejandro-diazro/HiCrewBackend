@@ -12,6 +12,8 @@ router.get('/', authenticate, async (req, res) => {
                 id: true,
                 name: true,
                 state: true,
+                locationIcao: true,
+                hubId: true,
                 life: true,
                 rankId: true,
                 reg: true,
@@ -33,6 +35,23 @@ router.get('/', authenticate, async (req, res) => {
                         img: true,
                     },
                 },
+                location: {
+                    select: {
+                        icao: true,
+                        name: true,
+                    },
+                },
+                hub: {
+                    select: {
+                        id: true,
+                        airport: {
+                            select: {
+                                icao: true,
+                                name: true,
+                            },
+                        },
+                    },
+                },
                 createdAt: true,
                 updatedAt: true,
             },
@@ -45,10 +64,10 @@ router.get('/', authenticate, async (req, res) => {
 });
 
 router.post('/', authenticate, checkPermissions(['OPERATIONS_MANAGER']), async (req, res) => {
-    const { aircraftId,airlineId, name, reg, state, life, rankId } = req.body;
+    const { aircraftId, airlineId, name, reg, state, locationIcao, hubId, life, rankId } = req.body;
 
-    if (!aircraftId || !airlineId || !name || !reg || !state || life === undefined) {
-        return res.status(400).json({ error: 'aircraftId, airlineId, name, reg, state, and life are required' });
+    if (!aircraftId || !airlineId || !name || !reg || state === undefined || !locationIcao || life === undefined) {
+        return res.status(400).json({ error: 'aircraftId, airlineId, name, reg, state, locationIcao, and life are required' });
     }
     if (name.length > 100) {
         return res.status(400).json({ error: 'name must be 100 characters or less' });
@@ -65,8 +84,23 @@ router.post('/', authenticate, checkPermissions(['OPERATIONS_MANAGER']), async (
     if (!Number.isInteger(life) || life < 0 || life > 100) {
         return res.status(400).json({ error: 'life must be an integer between 0 and 100' });
     }
+    if (hubId !== undefined && hubId !== null && !Number.isInteger(hubId)) {
+        return res.status(400).json({ error: 'hubId must be an integer or null' });
+    }
     if (rankId !== null && !Number.isInteger(rankId)) {
         return res.status(400).json({ error: 'rankId must be an integer or null' });
+    }
+
+    const airport = await prisma.airport.findUnique({ where: { icao: locationIcao } });
+    if (!airport) {
+        return res.status(400).json({ error: 'Invalid locationIcao: Airport not found' });
+    }
+
+    if (hubId) {
+        const hub = await prisma.hub.findUnique({ where: { id: hubId } });
+        if (!hub) {
+            return res.status(400).json({ error: 'Invalid hubId: Hub not found' });
+        }
     }
 
     try {
@@ -77,6 +111,8 @@ router.post('/', authenticate, checkPermissions(['OPERATIONS_MANAGER']), async (
                 name,
                 reg,
                 state,
+                locationIcao,
+                hubId: hubId || undefined,
                 life,
                 rankId: rankId || undefined,
             },
@@ -87,6 +123,8 @@ router.post('/', authenticate, checkPermissions(['OPERATIONS_MANAGER']), async (
                 name: true,
                 reg: true,
                 state: true,
+                locationIcao: true,
+                hubId: true,
                 life: true,
                 rankId: true,
                 createdAt: true,
@@ -102,10 +140,10 @@ router.post('/', authenticate, checkPermissions(['OPERATIONS_MANAGER']), async (
 
 router.patch('/:id', authenticate, checkPermissions(['OPERATIONS_MANAGER']), async (req, res) => {
     const { id } = req.params;
-    const { aircraftId, airlineId, name, reg, state, life, rankId } = req.body;
+    const { aircraftId, airlineId, name, reg, state, locationIcao, hubId, life, rankId } = req.body;
 
-    if (!aircraftId && !airlineId && !name && !reg && !state && life === undefined && rankId === undefined) {
-        return res.status(400).json({ error: 'At least one of aircraftId, airlineId, name, reg, state, life, or rankId is required' });
+    if (!aircraftId && !airlineId && !name && !reg && state === undefined && !locationIcao && hubId === undefined && life === undefined && rankId === undefined) {
+        return res.status(400).json({ error: 'At least one of aircraftId, airlineId, name, reg, state, locationIcao, hubId, life, or rankId is required' });
     }
     if (name && name.length > 100) {
         return res.status(400).json({ error: 'name must be 100 characters or less' });
@@ -125,6 +163,21 @@ router.patch('/:id', authenticate, checkPermissions(['OPERATIONS_MANAGER']), asy
     if (rankId !== undefined && rankId !== null && !Number.isInteger(rankId)) {
         return res.status(400).json({ error: 'rankId must be an integer or null' });
     }
+    if (hubId !== undefined && hubId !== null && !Number.isInteger(hubId)) {
+        return res.status(400).json({ error: 'hubId must be an integer or null' });
+    }
+    if (locationIcao) {
+        const airport = await prisma.airport.findUnique({ where: { icao: locationIcao } });
+        if (!airport) {
+            return res.status(400).json({ error: 'Invalid locationIcao: Airport not found' });
+        }
+    }
+    if (hubId) {
+        const hub = await prisma.hub.findUnique({ where: { id: hubId } });
+        if (!hub) {
+            return res.status(400).json({ error: 'Invalid hubId: Hub not found' });
+        }
+    }
 
     try {
         const fleet = await prisma.fleet.update({
@@ -134,7 +187,9 @@ router.patch('/:id', authenticate, checkPermissions(['OPERATIONS_MANAGER']), asy
                 airlineId: airlineId || undefined,
                 name: name || undefined,
                 reg: reg || undefined,
-                state: state || undefined,
+                state: state !== undefined ? state : undefined,
+                locationIcao: locationIcao || undefined,
+                hubId: hubId !== undefined ? hubId : undefined,
                 life: life !== undefined ? life : undefined,
                 rankId: rankId !== undefined ? rankId : undefined,
             },
@@ -145,6 +200,8 @@ router.patch('/:id', authenticate, checkPermissions(['OPERATIONS_MANAGER']), asy
                 name: true,
                 reg: true,
                 state: true,
+                locationIcao: true,
+                hubId: true,
                 life: true,
                 rankId: true,
                 createdAt: true,
@@ -169,6 +226,32 @@ router.delete('/:id', authenticate, checkPermissions(['OPERATIONS_MANAGER']), as
     } catch (error) {
         console.error('Failed to delete fleet unit:', error);
         res.status(500).json({ error: 'Failed to delete fleet unit' });
+    }
+});
+
+router.get('/hubs', authenticate, async (req, res) => {
+    try {
+        const hubs = await prisma.hub.findMany({
+            select: {
+                id: true,
+                airport: {
+                    select: {
+                        icao: true,
+                        name: true,
+                    },
+                },
+                airline: {
+                    select: {
+                        id: true,
+                        name: true,
+                    },
+                },
+            },
+        });
+        res.json(hubs);
+    } catch (error) {
+        console.error('Failed to fetch hubs:', error);
+        res.status(500).json({ error: 'Failed to fetch hubs' });
     }
 });
 
