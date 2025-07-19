@@ -230,6 +230,211 @@
         }
     });
 
+    router.get('/stats', async (req, res) => {
+        try {
+            // Monthly Flights: Aggregate by year and month (MariaDB-compatible)
+            const monthlyFlightsRaw = await prisma.$queryRaw`
+            SELECT 
+                DATE_FORMAT(createdAt, '%Y-%m') AS month,
+                COUNT(*) AS count
+            FROM Flight
+            WHERE createdAt >= ${new Date(new Date().getFullYear(), 0, 1)}
+            GROUP BY DATE_FORMAT(createdAt, '%Y-%m')
+            ORDER BY month
+        `;
+            const monthlyFlights = monthlyFlightsRaw.map(r => ({
+                month: r.month,
+                count: Number(r.count),
+            }));
+
+            // Annual Flights: Aggregate by year (MariaDB-compatible)
+            const annualFlightsRaw = await prisma.$queryRaw`
+            SELECT 
+                YEAR(createdAt) AS year,
+                COUNT(*) AS count
+            FROM Flight
+            GROUP BY YEAR(createdAt)
+            ORDER BY year
+        `;
+            const annualFlights = annualFlightsRaw.map(r => ({
+                year: Number(r.year),
+                count: Number(r.count),
+            }));
+
+            // Number of Unique Pilots
+            const pilotCount = await prisma.flight.aggregate({
+                _count: { pilotId: true },
+                where: { status: { in: [1, 2] } },
+            }).then(result => result._count.pilotId);
+
+            // Most Flown Aircraft Types
+            const mostFlownAircraft = await prisma.flight.groupBy({
+                by: ['aircraft'],
+                _count: { id: true },
+                where: { status: { in: [1, 2] } },
+                orderBy: { _count: { id: 'desc' } },
+                take: 5,
+            }).then(results => results.map(r => ({
+                aircraft: r.aircraft,
+                count: r._count.id,
+            })));
+
+            // Most Flown Fleet Aircraft
+            const mostFlownFleet = await prisma.flight.groupBy({
+                by: ['fleetId'],
+                _count: { id: true },
+                where: { fleetId: { not: null }, status: { in: [1, 2] } },
+                orderBy: { _count: { id: 'desc' } },
+                take: 5,
+            }).then(async results => {
+                const fleetDetails = await prisma.fleet.findMany({
+                    where: { id: { in: results.map(r => r.fleetId) } },
+                    select: { id: true, reg: true, name: true },
+                });
+                return results.map(r => ({
+                    fleetId: r.fleetId,
+                    registration: fleetDetails.find(f => f.id === r.fleetId)?.reg || 'Unknown',
+                    name: fleetDetails.find(f => f.id === r.fleetId)?.name || 'Unknown',
+                    count: r._count.id,
+                }));
+            });
+
+            // Flight Hours (Monthly)
+            const monthlyHours = await prisma.flight.findMany({
+                where: {
+                    startFlight: { not: null },
+                    closeFlight: { not: null },
+                    createdAt: { gte: new Date(new Date().getFullYear(), 0, 1) },
+                },
+                select: { startFlight: true, closeFlight: true },
+            }).then(results => {
+                const hoursByMonth = {};
+                results.forEach(flight => {
+                    const month = `${flight.startFlight.getFullYear()}-${(flight.startFlight.getMonth() + 1).toString().padStart(2, '0')}`;
+                    const hours = (flight.closeFlight - flight.startFlight) / (1000 * 60 * 60);
+                    hoursByMonth[month] = (hoursByMonth[month] || 0) + hours;
+                });
+                return Object.entries(hoursByMonth).map(([month, hours]) => ({ month, hours: Math.round(hours * 10) / 10 }));
+            });
+
+            // Flight Hours (Annual)
+            const annualHours = await prisma.flight.findMany({
+                where: { startFlight: { not: null }, closeFlight: { not: null } },
+                select: { startFlight: true, closeFlight: true },
+            }).then(results => {
+                const hoursByYear = {};
+                results.forEach(flight => {
+                    const year = flight.startFlight.getFullYear();
+                    const hours = (flight.closeFlight - flight.startFlight) / (1000 * 60 * 60);
+                    hoursByYear[year] = (hoursByYear[year] || 0) + hours;
+                });
+                return Object.entries(hoursByYear).map(([year, hours]) => ({ year, hours: Math.round(hours * 10) / 10 }));
+            });
+
+            // Most Active Pilot per Month
+            const mostActivePilots = await prisma.flight.groupBy({
+                by: ['pilotId', 'createdAt'],
+                _count: { id: true },
+                where: {
+                    createdAt: { gte: new Date(new Date().getFullYear(), 0, 1) },
+                    status: { in: [1, 2] },
+                },
+            }).then(async results => {
+                const pilotsByMonth = {};
+                results.forEach(r => {
+                    const month = `${r.createdAt.getFullYear()}-${(r.createdAt.getMonth() + 1).toString().padStart(2, '0')}`;
+                    if (!pilotsByMonth[month] || r._count.id > pilotsByMonth[month].count) {
+                        pilotsByMonth[month] = { pilotId: r.pilotId, count: r._count.id };
+                    }
+                });
+                const pilotDetails = await prisma.pilot.findMany({
+                    where: { id: { in: Object.values(pilotsByMonth).map(p => p.pilotId) } },
+                    select: { id: true, callsign: true },
+                });
+                return Object.entries(pilotsByMonth).map(([month, data]) => ({
+                    month,
+                    pilot: pilotDetails.find(p => p.id === data.pilotId)?.callsign || 'Unknown',
+                    count: data.count,
+                }));
+            });
+
+            // Most Frequent Departure Airports
+            const mostFrequentDepartures = await prisma.flight.groupBy({
+                by: ['departureIcao'],
+                _count: { id: true },
+                where: { status: { in: [1, 2] } },
+                orderBy: { _count: { id: 'desc' } },
+                take: 5,
+            }).then(async results => {
+                const airports = await prisma.airport.findMany({
+                    where: { icao: { in: results.map(r => r.departureIcao) } },
+                    select: { icao: true, name: true },
+                });
+                return results.map(r => ({
+                    icao: r.departureIcao,
+                    name: airports.find(a => a.icao === r.departureIcao)?.name || 'Unknown',
+                    count: r._count.id,
+                }));
+            });
+
+            // Most Frequent Arrival Airports
+            const mostFrequentArrivals = await prisma.flight.groupBy({
+                by: ['arrivalIcao'],
+                _count: { id: true },
+                where: { status: { in: [1, 2] } },
+                orderBy: { _count: { id: 'desc' } },
+                take: 5,
+            }).then(async results => {
+                const airports = await prisma.airport.findMany({
+                    where: { icao: { in: results.map(r => r.arrivalIcao) } },
+                    select: { icao: true, name: true },
+                });
+                return results.map(r => ({
+                    icao: r.arrivalIcao,
+                    name: airports.find(a => a.icao === r.arrivalIcao)?.name || 'Unknown',
+                    count: r._count.id,
+                }));
+            });
+
+            // Flights by Network and Type
+            const flightsByNetworkAndType = await prisma.flight.groupBy({
+                by: ['network', 'type'],
+                _count: { id: true },
+                where: { status: { in: [1, 2] } },
+            }).then(results => {
+                const typeMap = {
+                    1: 'Manual',
+                    2: 'Regular',
+                    3: 'Charter',
+                    4: 'ACARS',
+                    5: 'Free Mode',
+                };
+                return results.map(r => ({
+                    network: r.network || 'Offline',
+                    type: typeMap[r.type] || 'Unknown',
+                    count: r._count.id,
+                }));
+            });
+
+            res.json({
+                monthlyFlights,
+                annualFlights,
+                pilotCount,
+                mostFlownAircraft,
+                mostFlownFleet,
+                monthlyHours,
+                annualHours,
+                mostActivePilots,
+                mostFrequentDepartures,
+                mostFrequentArrivals,
+                flightsByNetworkAndType,
+            });
+        } catch (error) {
+            console.error('Failed to fetch statistics:', error);
+            res.status(500).json({ error: 'Failed to fetch statistics' });
+        }
+    });
+
     const createFlightEndpoint = (type) => {
         router.post(`/report/${type.toLowerCase()}`, authenticate, async (req, res) => {
             try {
