@@ -289,6 +289,95 @@ router.get('/me', async (req, res) => {
     }
 });
 
+router.get('/pilot/:pilotId', authenticate, async (req, res) => {
+    const { pilotId } = req.params;
+
+    if (!Number.isInteger(parseInt(pilotId))) {
+        return res.status(400).json({ error: 'pilotId must be an integer' });
+    }
+
+    try {
+        const pilot = await prisma.pilot.findUnique({
+            where: { id: parseInt(pilotId) },
+            include: {
+                pilotAirline: {
+                    select: {
+                        airline: {
+                            select: {
+                                id: true,
+                                name: true,
+                                logo: true,
+                                tail: true,
+                                can_join: true,
+                            },
+                        },
+                    },
+                },
+                pilotHub: {
+                    select: {
+                        hub: {
+                            include: {
+                                airline: {
+                                    select: {
+                                        id: true,
+                                        name: true,
+                                    },
+                                },
+                                airport: {
+                                    select: {
+                                        icao: true,
+                                        name: true,
+                                        country: true,
+                                    },
+                                },
+                            },
+                        },
+                    },
+                },
+                pilotMedals: {
+                    select: {
+                        medal: {
+                            select: {
+                                id: true,
+                                img: true,
+                                text: true,
+                                createdAt: true,
+                                updatedAt: true,
+                            },
+                        },
+                    },
+                },
+                rank: true,
+            },
+        });
+
+        if (!pilot) {
+            return res.status(404).json({ error: 'Pilot not found' });
+        }
+
+        const pilotResponse = {
+            id: pilot.id,
+            firstName: pilot.firstName,
+            lastName: pilot.lastName,
+            callsign: pilot.callsign,
+            locationIcao: pilot.locationIcao,
+            ivaoId: pilot.ivaoId,
+            vatsimId: pilot.vatsimId,
+            points: pilot.points,
+            createdAt: pilot.createdAt,
+            airline: pilot.pilotAirline?.airline || null,
+            hub: pilot.pilotHub?.hub || null,
+            medals: pilot.pilotMedals.map((pm) => pm.medal),
+            rank: pilot.rank,
+        };
+
+        res.json({ pilot: pilotResponse });
+    } catch (error) {
+        console.error('Error getting pilot data:', error);
+        res.status(500).json({ error: 'Failed to get pilot data' });
+    }
+});
+
 router.delete('/delete-me', authenticate, async (req, res) => {
     const userId = req.user.id;
 

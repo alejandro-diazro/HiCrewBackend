@@ -40,6 +40,49 @@
         }
     });
 
+    router.get('/pilot/:pilotId', authenticate, async (req, res) => {
+        const { pilotId } = req.params;
+
+        if (!Number.isInteger(parseInt(pilotId))) {
+            return res.status(400).json({ error: 'pilotId must be an integer' });
+        }
+
+        try {
+            const flights = await prisma.flight.findMany({
+                where: {
+                    pilotId: parseInt(pilotId),
+                    status: 2 // Only show accepted flights for public view
+                },
+                select: {
+                    id: true,
+                    status: true,
+                    type: true,
+                    callsign: true,
+                    aircraft: true,
+                    departureIcao: true,
+                    arrivalIcao: true,
+                    startFlight: true,
+                    closeFlight: true,
+                    createdAt: true,
+                    network: true,
+                    departure: {
+                        select: { icao: true, name: true }
+                    },
+                    arrival: {
+                        select: { icao: true, name: true }
+                    }
+                },
+                orderBy: {
+                    createdAt: 'desc'
+                }
+            });
+            res.json(flights);
+        } catch (error) {
+            console.error('Failed to fetch pilot flights:', error);
+            res.status(500).json({ error: 'Failed to fetch flights' });
+        }
+    });    
+    
     router.get('/status/:number', authenticate, async (req, res) => {
         try {
             const status = parseInt(req.params.number);
@@ -331,32 +374,56 @@
                 return Object.entries(hoursByYear).map(([year, hours]) => ({ year, hours: Math.round(hours * 10) / 10 }));
             });
 
-            // Most Active Pilot per Month
-            const mostActivePilots = await prisma.flight.groupBy({
-                by: ['pilotId', 'createdAt'],
-                _count: { id: true },
-                where: {
-                    createdAt: { gte: new Date(new Date().getFullYear(), 0, 1) },
-                    status: { in: [1, 2] },
-                },
-            }).then(async results => {
-                const pilotsByMonth = {};
-                results.forEach(r => {
-                    const month = `${r.createdAt.getFullYear()}-${(r.createdAt.getMonth() + 1).toString().padStart(2, '0')}`;
-                    if (!pilotsByMonth[month] || r._count.id > pilotsByMonth[month].count) {
-                        pilotsByMonth[month] = { pilotId: r.pilotId, count: r._count.id };
-                    }
-                });
-                const pilotDetails = await prisma.pilot.findMany({
-                    where: { id: { in: Object.values(pilotsByMonth).map(p => p.pilotId) } },
-                    select: { id: true, callsign: true },
-                });
-                return Object.entries(pilotsByMonth).map(([month, data]) => ({
-                    month,
-                    pilot: pilotDetails.find(p => p.id === data.pilotId)?.callsign || 'Unknown',
-                    count: data.count,
-                }));
+            // Best Pilot per Month (based on flight count)
+            const bestPilotPerMonthRaw = await prisma.$queryRaw`
+                SELECT 
+                    DATE_FORMAT(createdAt, '%Y-%m') AS month,
+                    pilotId,
+                    COUNT(*) AS flightCount
+                FROM Flight
+                WHERE createdAt >= ${new Date(new Date().getFullYear(), 0, 1)}
+                    AND status = 2
+                GROUP BY DATE_FORMAT(createdAt, '%Y-%m'), pilotId
+                ORDER BY month, flightCount DESC
+            `;
+
+            // Process to get best pilot per month
+            const bestPilotPerMonth = [];
+            const monthGroups = {};
+            
+            bestPilotPerMonthRaw.forEach(row => {
+                const month = row.month;
+                if (!monthGroups[month] || Number(row.flightCount) > monthGroups[month].flightCount) {
+                    monthGroups[month] = {
+                        month,
+                        pilotId: Number(row.pilotId),
+                        flightCount: Number(row.flightCount)
+                    };
+                }
             });
+
+            // Get pilot details for best pilots
+            const bestPilotIds = Object.values(monthGroups).map(g => g.pilotId);
+            const bestPilotDetails = await prisma.pilot.findMany({
+                where: { id: { in: bestPilotIds } },
+                select: { id: true, callsign: true, firstName: true, lastName: true },
+            });
+
+            Object.values(monthGroups).forEach(group => {
+                const pilot = bestPilotDetails.find(p => p.id === group.pilotId);
+                bestPilotPerMonth.push({
+                    month: group.month,
+                    pilot: pilot ? {
+                        id: pilot.id,
+                        callsign: pilot.callsign,
+                        name: `${pilot.firstName} ${pilot.lastName}`
+                    } : null,
+                    flightCount: group.flightCount
+                });
+            });
+
+            // Sort by month
+            bestPilotPerMonth.sort((a, b) => a.month.localeCompare(b.month));
 
             // Most Frequent Departure Airports
             const mostFrequentDepartures = await prisma.flight.groupBy({
@@ -424,7 +491,7 @@
                 mostFlownFleet,
                 monthlyHours,
                 annualHours,
-                mostActivePilots,
+                bestPilotPerMonth,
                 mostFrequentDepartures,
                 mostFrequentArrivals,
                 flightsByNetworkAndType,
