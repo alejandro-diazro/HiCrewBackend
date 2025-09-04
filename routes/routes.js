@@ -28,17 +28,12 @@ router.get('/', authenticate, async (req, res) => {
                         country: true,
                     },
                 },
-                fleetId: true,
-                fleet: {
+                aircraftId: true,
+                aircraft: {
                     select: {
                         id: true,
-                        name: true,
-                        aircraft: {
-                            select: {
-                                icao: true,
-                                manufacturer: true,
-                            },
-                        },
+                        icao: true,
+                        manufacturer: true,
                     },
                 },
                 airlineId: true,
@@ -48,6 +43,7 @@ router.get('/', authenticate, async (req, res) => {
                         name: true,
                     },
                 },
+                callsign: true,
                 createdAt: true,
                 updatedAt: true,
             },
@@ -60,10 +56,10 @@ router.get('/', authenticate, async (req, res) => {
 });
 
 router.post('/', authenticate, checkPermissions(['OPERATIONS_MANAGER']), async (req, res) => {
-    const { departureIcao, arrivalIcao, fleetId, airlineId } = req.body;
+    const { departureIcao, arrivalIcao, aircraftId, airlineId, callsign } = req.body;
 
-    if (!departureIcao || !arrivalIcao || !fleetId || !airlineId) {
-        return res.status(400).json({ error: 'departureIcao, arrivalIcao, fleetId, and airlineId are required' });
+    if (!departureIcao || !arrivalIcao || !aircraftId || !airlineId) {
+        return res.status(400).json({ error: 'departureIcao, arrivalIcao, aircraftId, and airlineId are required' });
     }
     if (departureIcao.length !== 4 || arrivalIcao.length !== 4) {
         return res.status(400).json({ error: 'departureIcao and arrivalIcao must be exactly 4 characters' });
@@ -71,21 +67,26 @@ router.post('/', authenticate, checkPermissions(['OPERATIONS_MANAGER']), async (
     if (departureIcao === arrivalIcao) {
         return res.status(400).json({ error: 'departureIcao and arrivalIcao cannot be the same' });
     }
+    if (callsign.length > 8) {
+        return res.status(400).json({ error: 'callsign must not exceed 8 characters' });
+    }
 
     try {
         const route = await prisma.route.create({
             data: {
                 departureIcao,
                 arrivalIcao,
-                fleetId,
+                aircraftId,
                 airlineId,
+                callsign,
             },
             select: {
                 id: true,
                 departureIcao: true,
                 arrivalIcao: true,
-                fleetId: true,
+                aircraftId: true,
                 airlineId: true,
+                callsign: true,
                 createdAt: true,
                 updatedAt: true,
             },
@@ -99,10 +100,10 @@ router.post('/', authenticate, checkPermissions(['OPERATIONS_MANAGER']), async (
 
 router.patch('/:id', authenticate, checkPermissions(['OPERATIONS_MANAGER']), async (req, res) => {
     const { id } = req.params;
-    const { departureIcao, arrivalIcao, fleetId, airlineId } = req.body;
+    const { departureIcao, arrivalIcao, aircraftId, airlineId, callsign } = req.body;
 
-    if (!departureIcao && !arrivalIcao && !fleetId && !airlineId) {
-        return res.status(400).json({ error: 'At least one of departureIcao, arrivalIcao, fleetId, or airlineId is required' });
+    if (!departureIcao && !arrivalIcao && !aircraftId && !airlineId && callsign === undefined) {
+        return res.status(400).json({ error: 'At least one of departureIcao, arrivalIcao, aircraftId, or airlineId is required' });
     }
     if (departureIcao && departureIcao.length !== 4) {
         return res.status(400).json({ error: 'departureIcao must be exactly 4 characters' });
@@ -113,6 +114,9 @@ router.patch('/:id', authenticate, checkPermissions(['OPERATIONS_MANAGER']), asy
     if (departureIcao && arrivalIcao && departureIcao === arrivalIcao) {
         return res.status(400).json({ error: 'departureIcao and arrivalIcao cannot be the same' });
     }
+    if (callsign && callsign.length > 8) {
+        return res.status(400).json({ error: 'callsign must not exceed 8 characters' });
+    }
 
     try {
         const route = await prisma.route.update({
@@ -120,15 +124,17 @@ router.patch('/:id', authenticate, checkPermissions(['OPERATIONS_MANAGER']), asy
             data: {
                 departureIcao: departureIcao || undefined,
                 arrivalIcao: arrivalIcao || undefined,
-                fleetId: fleetId || undefined,
+                aircraftId: aircraftId || undefined,
                 airlineId: airlineId || undefined,
+                callsign: callsign || undefined,
             },
             select: {
                 id: true,
                 departureIcao: true,
                 arrivalIcao: true,
-                fleetId: true,
+                aircraftId: true,
                 airlineId: true,
+                callsign: true,
                 createdAt: true,
                 updatedAt: true,
             },

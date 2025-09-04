@@ -305,10 +305,7 @@
             }));
 
             // Number of Unique Pilots
-            const pilotCount = await prisma.flight.aggregate({
-                _count: { pilotId: true },
-                where: { status: { in: [1, 2] } },
-            }).then(result => result._count.pilotId);
+            const pilotCount = await prisma.pilot.count();
 
             // Most Flown Aircraft Types
             const mostFlownAircraft = await prisma.flight.groupBy({
@@ -530,7 +527,7 @@
                     }
                     finalCallsign = pilot.callsign;
 
-                    finalAircraft= "ZZZZ";
+                    finalAircraft= aircraft;
                 }
 
                 if (isCharter) {

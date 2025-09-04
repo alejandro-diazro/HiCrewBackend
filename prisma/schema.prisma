@@ -217,6 +217,7 @@ model Aircraft {
   updatedAt      DateTime @updatedAt
   fleet          Fleet[]
   paintkits      Paintkit[]
+  routes         Route[]    @relation("RouteAircraft")
 }
 
 model Fleet {
@@ -237,7 +238,6 @@ model Fleet {
   rank       Rank?    @relation(fields: [rankId], references: [id])
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
-  routes       Route[]
   flights    Flight[]
 }
 
@@ -259,13 +259,14 @@ model Route {
   departure     Airport    @relation("DepartureAirport", fields: [departureIcao], references: [icao])
   arrivalIcao   String
   arrival       Airport    @relation("ArrivalAirport", fields: [arrivalIcao], references: [icao])
-  fleetId       Int
-  fleet         Fleet      @relation(fields: [fleetId], references: [id])
+  aircraftId    Int
+  aircraft      Aircraft   @relation("RouteAircraft", fields: [aircraftId], references: [id])
   airlineId     Int
   airline       Airline    @relation(fields: [airlineId], references: [id])
+  callsign      String     @db.VarChar(8)
   createdAt     DateTime   @default(now())
   updatedAt     DateTime   @updatedAt
-  flights    Flight[]
+  flights       Flight[]
 }
 
 model RequestJoin {

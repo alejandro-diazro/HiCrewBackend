@@ -1,53 +1,330 @@
-# HiCrew Backend
+# HiCrew Backend - Virtual Airline API
 
-HiCrew Backend is a RESTful API for managing pilots, permissions, and flights in a virtual aviation platform. Built with Node.js, Express, Prisma, and MariaDB, it provides user authentication with JWT, a role-based permission system, and flight management capabilities.
+HiCrew Backend is a comprehensive RESTful API for managing virtual airline operations. Built with Node.js, Express, Prisma ORM, and MySQL/MariaDB, it provides complete functionality for pilot management, fleet operations, flight tracking, and administration systems.
 
-## Table of Contents
-- [Features](#features)
-- [Prerequisites](#prerequisites)
-- [Installation](#installation)
-    - [Local Setup](#local-setup)
-    - [Docker Setup](#docker-setup)
-- [Configuration](#configuration)
-- [Running the Project](#running-the-project)
-- [API Endpoints](#api-endpoints)
-- [Testing with Postman](#testing-with-postman)
-- [Project Structure](#project-structure)
-- [Contributing](#contributing)
-- [License](#license)
+## 🌟 Features
 
-## Features
-- User registration and login with JWT authentication.
-- Role-based permission system for pilots (e.g., `VIEW_PILOTS`, `MANAGE_FLIGHTS`, `ADMIN`).
-- Management of pilot profiles, permissions, and flight records.
-- Integration with MariaDB for persistent storage.
-- Support for IVAO and VATSIM IDs.
-- Docker support for easy database setup.
+- **🔐 Authentication & Authorization** - JWT-based auth with role-based permissions
+- **👨‍✈️ Pilot Management** - Complete pilot profiles with IVAO/VATSIM integration
+- **✈️ Fleet Management** - Aircraft, routes, and fleet administration
+- **📊 Flight Operations** - Flight planning, tracking, and reporting
+- **🏆 Gamification** - Medals, ranks, and achievement system
+- **🌐 Multi-airline Support** - Configurable for different virtual airlines
+- **📧 Email Integration** - Automated notifications and communications
+- **🔄 ACARS Integration** - Compatible with HiACARS flight tracking
+- **📋 Administration Panel** - Complete backend for admin operations
+- **🐳 Docker Support** - Easy deployment with Docker containers
 
-## Prerequisites
+## 🚀 Quick Setup
+
+### Prerequisites
+
 - **Node.js** (v16 or higher)
-- **npm** (v8 or higher)
-- **MariaDB** (v10.5 or higher) or Docker for database hosting
-- **Git** (for cloning the repository)
-- **Postman** (optional, for testing API endpoints)
+- **npm** or **yarn**
+- **MySQL** or **MariaDB** (v10.5+)
+- **Git**
 
-## Installation
+### Installation
 
-### Local Setup
-1. **Clone the repository**:
+1. **Clone the repository:**
    ```bash
-   git clone https://github.com/<your-username>/hicrew-backend.git
-   cd hicrew-backend
-2. **Install dependencies**:
-    ```bash
+   git clone https://github.com/alejandro-diazro/HiCrewBackend.git
+   cd HiCrewBackend
+   ```
+
+2. **Install dependencies:**
+   ```bash
    npm install
-3.  **Set up MariaDB**:
-    * Install MariaDB locally if not using Docker.
-    * Create a database named `hicrew`:
-        ```sql
-        CREATE DATABASE hicrew;
-        ```
-4.  **Configure environment variables**:
+   ```
+
+3. **Configure environment variables:**
+   ```bash
+   # Copy the example environment file
+   cp .env.example .env
+   
+   # Edit the .env file with your configuration
+   nano .env  # or use your preferred editor
+   ```
+
+4. **Set up the database:**
+   ```bash
+   # Generate Prisma client
+   npx prisma generate
+   
+   # Run database migrations
+   npx prisma migrate dev
+   ```
+
+5. **Seed the database (optional but recommended):**
+   ```bash
+   # Add initial data and configuration
+   node seed.js
+   
+   # Add airports data (optional - adds worldwide airports)
+   node airports.js
+   ```
+
+6. **Start the server:**
+   ```bash
+   # Development mode
+   npm run dev
+   
+   # Production mode
+   npm start
+   ```
+
+The API will be available at `http://localhost:8000` (or your configured port).
+
+## ⚙️ Configuration
+
+### Environment Variables (.env)
+
+```bash
+# Server Configuration
+PORT=8000
+
+# Database Configuration
+DATABASE_URL="mysql://username:password@localhost:3306/hicrew"
+
+# JWT Security
+JWT_SECRET=your_very_secure_jwt_secret_here
+
+# Email Configuration (for notifications)
+EMAIL_HOST=smtp.gmail.com
+EMAIL_PORT=587
+EMAIL_USER=your-email@gmail.com
+EMAIL_PASS=your-app-password
+EMAIL_NAME=HiCrew
+
+# Frontend URL (for CORS and email links)
+FRONTEND_URL=http://localhost:3000
+
+# Airline Configuration
+ICAO_AIRLINE="HCW"  # Your airline's ICAO code
+```
+
+### Database Setup Options
+
+#### Option 1: Local MySQL/MariaDB
+```bash
+# Install MySQL or MariaDB locally
+# Create database
+mysql -u root -p
+CREATE DATABASE hicrew;
+```
+
+#### Option 2: Docker (Recommended for development)
+```bash
+# Use the provided docker-compose file
+docker-compose up -d
+```
+
+## 🔧 Available Scripts
+
+```bash
+npm start              # Start production server
+npm run dev           # Start development server with nodemon
+npm run prisma:migrate # Run database migrations
+npm run prisma:generate # Generate Prisma client
+```
+
+## 📋 API Endpoints
+
+### Authentication
+- `POST /api/auth/register` - Register new pilot
+- `POST /api/auth/login` - Pilot login
+- `POST /api/auth/forgot-password` - Password reset request
+- `POST /api/auth/reset-password` - Reset password
+
+### Pilot Management
+- `GET /api/pilots` - List all pilots
+- `GET /api/pilots/:id` - Get pilot details
+- `PUT /api/pilots/:id` - Update pilot profile
+- `DELETE /api/pilots/:id` - Delete pilot
+
+### Fleet & Aircraft
+- `GET /api/aircraft` - List aircraft types
+- `GET /api/fleet` - List airline fleet
+- `POST /api/fleet` - Add aircraft to fleet
+- `PUT /api/fleet/:id` - Update fleet aircraft
+- `DELETE /api/fleet/:id` - Remove from fleet
+
+### Flight Operations
+- `GET /api/flights` - List flights
+- `POST /api/flights` - Create new flight
+- `GET /api/routes` - List available routes
+- `POST /api/routes` - Create new route
+
+### Administration
+- `GET /api/permissions` - List permissions
+- `POST /api/permissions` - Assign permissions
+- `GET /api/config` - Get airline configuration
+- `PUT /api/config` - Update configuration
+
+### Data Management
+- `GET /api/airports` - List airports
+- `GET /api/medals` - List medals/achievements
+- `GET /api/ranks` - List pilot ranks
+- `GET /api/simulators` - List supported simulators
+
+*For complete API documentation, see the `/docs` endpoint when the server is running.*
+
+## 🏗️ Project Structure
+
+```
+HiCrewBackend/
+├── config/              # Database and app configuration
+├── controllers/         # Business logic controllers
+├── middleware/          # Authentication and validation middleware
+│   ├── auth.js         # JWT authentication
+│   └── permissions.js  # Role-based permissions
+├── models/             # Data models (if using additional ORMs)
+├── prisma/             # Prisma ORM configuration
+│   ├── schema.prisma   # Database schema
+│   └── migrations/     # Database migration files
+├── routes/             # API route definitions
+│   ├── auth.js         # Authentication routes
+│   ├── pilots.js       # Pilot management
+│   ├── fleet.js        # Fleet operations
+│   ├── flights.js      # Flight operations
+│   └── ...            # Other route files
+├── utils/              # Utility functions
+│   └── email.js        # Email sending utilities
+├── .env.example        # Environment configuration template
+├── docker-compose.yml  # Docker setup for database
+├── seed.js            # Database seeding script
+├── airports.js        # Airport data import script
+├── cronJobs.js        # Scheduled tasks
+└── server.js          # Main application entry point
+```
+
+## 🐳 Docker Setup
+
+For easy development setup with Docker:
+
+```bash
+# Start the database container
+docker-compose up -d
+
+# The database will be available at localhost:3306
+# Default credentials are in docker-compose.yml
+```
+
+## 🔄 Integration with Frontend
+
+This backend is designed to work with the [HiCrew Frontend](https://github.com/alejandro-diazro/HiCrew):
+
+1. **Start the backend** (this repository)
+2. **Configure the frontend** to point to this API
+3. **Update CORS settings** in the backend for your frontend URL
+
+## 🧪 Testing
+
+You can test the API using:
+
+- **Postman** - Import the API collection (if available)
+- **curl** - Command line testing
+- **Frontend** - Direct integration testing
+
+Example test request:
+```bash
+# Test server health
+curl http://localhost:8000/api/health
+
+# Login example
+curl -X POST http://localhost:8000/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"pilot@example.com","password":"password"}'
+```
+
+## 🤝 Contributing
+
+Contributions are welcome! Please follow these steps:
+
+1. **Fork the repository**
+2. **Create a feature branch** (`git checkout -b feature/AmazingFeature`)
+3. **Commit your changes** (`git commit -m 'Add some AmazingFeature'`)
+4. **Push to the branch** (`git push origin feature/AmazingFeature`)
+5. **Open a Pull Request**
+
+### Development Guidelines
+
+- Follow existing code conventions
+- Add tests for new features
+- Update documentation as needed
+- Ensure all migrations are reversible
+- Test with both MySQL and MariaDB if possible
+
+## 🔒 Security
+
+- **JWT Authentication** - Secure token-based authentication
+- **Password Hashing** - bcrypt for secure password storage
+- **Input Validation** - Comprehensive request validation
+- **CORS Configuration** - Proper cross-origin resource sharing
+- **Environment Variables** - Sensitive data stored securely
+
+## 📊 Database Schema
+
+The database uses Prisma ORM with the following main entities:
+
+- **Pilots** - User accounts and profiles
+- **Airlines** - Virtual airline configurations
+- **Aircraft** - Aircraft types and specifications
+- **Fleet** - Airline fleet management
+- **Routes** - Flight routes and schedules
+- **Flights** - Individual flight records
+- **Permissions** - Role-based access control
+- **Medals & Ranks** - Gamification system
+
+## 🚨 Troubleshooting
+
+### Common Issues
+
+**Database connection fails:**
+```bash
+# Check your DATABASE_URL in .env
+# Ensure MySQL/MariaDB is running
+# Verify database exists and credentials are correct
+```
+
+**Prisma errors:**
+```bash
+# Regenerate Prisma client
+npx prisma generate
+
+# Reset database (CAUTION: This will delete all data)
+npx prisma migrate reset
+```
+
+**Port already in use:**
+```bash
+# Change PORT in .env file
+# Or kill the process using the port
+lsof -ti:8000 | xargs kill
+```
+
+## 📄 License
+
+This project is licensed under the **MIT License** - see the [LICENSE](LICENSE) file for details.
+
+## 🌟 Credits
+
+Developed by [Alejandro Díaz](https://github.com/alejandro-diazro)
+
+## 🔗 Related Projects
+
+- **[HiCrew Frontend](https://github.com/alejandro-diazro/HiCrew)** - React frontend application
+- **[HiACARS](https://diazro.me/hicrew)** - Flight tracking software
+
+---
+
+**Ready to manage your virtual airline?** ✈️
+
+1. Setup the database
+2. Configure your `.env`
+3. Run migrations and seed data
+4. Connect your frontend
+5. Take off! 🚀
     * Create a `.env` file in the root directory based on the example below:
         ```env
         DATABASE_URL="mysql://hicrew_user:hicrew_password@localhost:3306/hicrew"
