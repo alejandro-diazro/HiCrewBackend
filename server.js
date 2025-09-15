@@ -57,12 +57,20 @@ app.use('/request-joins', requestJoinRoutes);
 app.use('/tours', tourRoutes);
 app.use('/legs', legRoutes);
 app.use('/report-tours', reportTourRoutes);
+app.use('/tour-enrollment', require('./routes/tour-enrollment-simple'));
 app.use('/permissions', permissionsRouter);
 app.use('/configs', configRouter);
 app.use('/staff-list', staffListRouter);
 app.use('/hubs',hubRouter);
 app.use('/pilot-medals',pilotMedalRouter);
 app.use('/flights', flightRouter);
+app.use('/simbrief', require('./routes/simbrief'));
+app.use('/admin-stats', require('./routes/admin-stats'));
+app.use('/career', require('./routes/career'));
+app.use('/career-migration', require('./routes/career-migration'));
+app.use('/career-admin', require('./routes/career-admin'));
+app.use('/ivao-tracker', require('./routes/ivao-tracker'));
+app.use('/upload', require('./routes/upload'));
 
 
 app.get('/', (req, res) => {

@@ -18,8 +18,6 @@ router.get('/', async (req, res) => {
                 pilot: {
                     select: {
                         firstName: true,
-                        lastName: true,
-                        email: true,
                         callsign: true,
                     },
                 },
@@ -28,7 +26,46 @@ router.get('/', async (req, res) => {
                 priority: 'asc',
             },
         });
+
         res.json(staffList);
+    } catch (error) {
+        console.error('Failed to fetch staff list:', error);
+        res.status(500).json({ error: 'Failed to fetch staff list' });
+    }
+});
+
+router.get('/authenticated', authenticate, async (req, res) => {
+    try {
+        const staffList = await prisma.staffList.findMany({
+            select: {
+                id: true,
+                pilotId: true,
+                nameRolePosition: true,
+                priority: true,
+                createdAt: true,
+                updatedAt: true,
+                pilot: {
+                    select: {
+                        firstName: true,
+                        lastName: true,
+                        callsign: true,
+                    },
+                },
+            },
+            orderBy: {
+                priority: 'asc',
+            },
+        });
+
+        const processedStaff = staffList.map(staff => ({
+            ...staff,
+            pilot: {
+                ...staff.pilot,
+                lastName: staff.pilot.lastName ? staff.pilot.lastName.charAt(0) + '.' : ''
+            }
+        }));
+        
+        res.json(processedStaff);
     } catch (error) {
         console.error('Failed to fetch staff list:', error);
         res.status(500).json({ error: 'Failed to fetch staff list' });

@@ -147,6 +147,11 @@ cron.schedule('* * * * *', async () => {
                     updateData = {
                         startFlight: now,
                     };
+
+                    await prisma.flight.update({
+                        where: { id: flight.id },
+                        data: updateData,
+                    });
                 }
 
                 // Handle flight end (groundspeed <= 60)

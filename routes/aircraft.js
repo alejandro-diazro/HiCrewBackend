@@ -12,6 +12,7 @@ router.get('/', authenticate, async (req, res) => {
                 id: true,
                 icao: true,
                 manufacturer: true,
+                model: true,
                 range: true,
                 max_passengers: true,
                 img: true,
@@ -27,10 +28,10 @@ router.get('/', authenticate, async (req, res) => {
 });
 
 router.post('/', authenticate, checkPermissions(['OPERATIONS_MANAGER']), async (req, res) => {
-    const { icao, manufacturer, range, max_passengers, img } = req.body;
+    const { icao, manufacturer, model, range, max_passengers, img } = req.body;
 
-    if (!icao || !manufacturer || range === undefined || max_passengers === undefined || !img) {
-        return res.status(400).json({ error: 'icao, manufacturer, range, max_passengers, and img are required' });
+    if (!icao || !manufacturer || !model || range === undefined || max_passengers === undefined) {
+        return res.status(400).json({ error: 'icao, manufacturer, model, range, and max_passengers are required' });
     }
     if (icao.length !== 4) {
         return res.status(400).json({ error: 'icao must be exactly 4 characters' });
@@ -38,13 +39,16 @@ router.post('/', authenticate, checkPermissions(['OPERATIONS_MANAGER']), async (
     if (manufacturer.length > 100) {
         return res.status(400).json({ error: 'manufacturer must be 100 characters or less' });
     }
+    if (model && model.length > 100) {
+        return res.status(400).json({ error: 'model must be 100 characters or less' });
+    }
     if (!Number.isInteger(range) || range < 0) {
         return res.status(400).json({ error: 'range must be a non-negative integer' });
     }
     if (!Number.isInteger(max_passengers) || max_passengers < 0) {
         return res.status(400).json({ error: 'max_passengers must be a non-negative integer' });
     }
-    if (img.length > 255) {
+    if (img && img.length > 255) {
         return res.status(400).json({ error: 'img must be 255 characters or less' });
     }
 
@@ -53,14 +57,16 @@ router.post('/', authenticate, checkPermissions(['OPERATIONS_MANAGER']), async (
             data: {
                 icao,
                 manufacturer,
+                model,
                 range,
                 max_passengers,
-                img,
+                img: img || '',
             },
             select: {
                 id: true,
                 icao: true,
                 manufacturer: true,
+                model: true,
                 range: true,
                 max_passengers: true,
                 img: true,
@@ -77,16 +83,19 @@ router.post('/', authenticate, checkPermissions(['OPERATIONS_MANAGER']), async (
 
 router.patch('/:id', authenticate, checkPermissions(['OPERATIONS_MANAGER']), async (req, res) => {
     const { id } = req.params;
-    const { icao, manufacturer, range, max_passengers, img } = req.body;
+    const { icao, manufacturer, model, range, max_passengers, img } = req.body;
 
-    if (!icao && !manufacturer && range === undefined && max_passengers === undefined && !img) {
-        return res.status(400).json({ error: 'At least one of icao, manufacturer, range, max_passengers, or img is required' });
+    if (!icao && !manufacturer && !model && range === undefined && max_passengers === undefined && !img) {
+        return res.status(400).json({ error: 'At least one of icao, manufacturer, model, range, max_passengers, or img is required' });
     }
     if (icao && icao.length !== 4) {
         return res.status(400).json({ error: 'icao must be exactly 4 characters' });
     }
     if (manufacturer && manufacturer.length > 100) {
         return res.status(400).json({ error: 'manufacturer must be 100 characters or less' });
+    }
+    if (model && model.length > 100) {
+        return res.status(400).json({ error: 'model must be 100 characters or less' });
     }
     if (range !== undefined && (!Number.isInteger(range) || range < 0)) {
         return res.status(400).json({ error: 'range must be a non-negative integer' });
@@ -104,6 +113,7 @@ router.patch('/:id', authenticate, checkPermissions(['OPERATIONS_MANAGER']), asy
             data: {
                 icao: icao || undefined,
                 manufacturer: manufacturer || undefined,
+                model: model || undefined,
                 range: range !== undefined ? range : undefined,
                 max_passengers: max_passengers !== undefined ? max_passengers : undefined,
                 img: img || undefined,
@@ -112,6 +122,7 @@ router.patch('/:id', authenticate, checkPermissions(['OPERATIONS_MANAGER']), asy
                 id: true,
                 icao: true,
                 manufacturer: true,
+                model: true,
                 range: true,
                 max_passengers: true,
                 img: true,

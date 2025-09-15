@@ -1,83 +1,94 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
 datasource db {
   provider = "mysql"
   url      = env("DATABASE_URL")
 }
 
-generator client {
-  provider = "prisma-client-js"
-}
-
 model Pilot {
-  id          Int              @id @default(autoincrement())
-  email       String           @unique
-  ivaoId      String?          @unique
-  vatsimId    String?          @unique
-  firstName   String
-  lastName    String
-  birthDate   DateTime?
-  callsign    String?
-  password    String?
-  hours       Float            @default(0)
-  rankId           Int?
-  rank             Rank?            @relation(fields: [rankId], references: [id])
-  locationIcao     String?
-  location         Airport?         @relation(fields: [locationIcao], references: [icao])
-  points           Int              @default(0)
-  createdAt   DateTime         @default(now())
-  updatedAt   DateTime         @updatedAt
-  pilotPermissions PilotPermission[]
-  flights     Flight[]
-  reportTours    ReportTour[]
-  pilotMedals PilotMedal[]
-  staffList        StaffList?       @relation("PilotToStaffList")
-  pilotAirline     PilotAirline?    @relation("PilotToPilotAirline")
-  pilotHub         PilotHub?        @relation("PilotToPilotHub")
-  resetPasswordToken   String?
+  id                   Int               @id @default(autoincrement())
+  email                String            @unique
+  ivaoId               String?           @unique
+  vatsimId             String?           @unique
+  firstName            String
+  lastName             String
+  birthDate            DateTime?
+  callsign             String?
+  password             String?
+  hours                Float             @default(0)
+  createdAt            DateTime          @default(now())
+  updatedAt            DateTime          @updatedAt
+  locationIcao         String?
+  points               Int               @default(0)
+  rankId               Int?
   resetPasswordExpires DateTime?
+  resetPasswordToken   String?
+  flights              Flight[]
+  location             Airport?          @relation(fields: [locationIcao], references: [icao])
+  rank                 Rank?             @relation(fields: [rankId], references: [id])
+  pilotAirline         PilotAirline?     @relation("PilotToPilotAirline")
+  pilotHub             PilotHub?         @relation("PilotToPilotHub")
+  pilotMedals          PilotMedal[]
+  pilotPermissions     PilotPermission[]
+  reportTours          ReportTour[]
+  staffList            StaffList?        @relation("PilotToStaffList")
+
+  @@index([locationIcao], map: "Pilot_locationIcao_fkey")
+  @@index([rankId], map: "Pilot_rankId_fkey")
 }
 
 model Permission {
-  id          Int              @id @default(autoincrement())
-  name        String           @unique // Example: "VIEW_PILOTS", "MANAGE_FLIGHTS"
-  description String?
-  createdAt   DateTime         @default(now())
-  updatedAt   DateTime         @updatedAt
+  id               Int               @id @default(autoincrement())
+  name             String            @unique
+  description      String?
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
   pilotPermissions PilotPermission[]
 }
 
 model PilotPermission {
-  pilotId     Int      @map("pilot_id")
-  permissionId Int     @map("permission_id")
-  pilot       Pilot    @relation(fields: [pilotId], references: [id])
-  permission  Permission @relation(fields: [permissionId], references: [id])
-  createdAt   DateTime @default(now())
+  pilotId      Int        @map("pilot_id")
+  permissionId Int        @map("permission_id")
+  createdAt    DateTime   @default(now())
+  permission   Permission @relation(fields: [permissionId], references: [id])
+  pilot        Pilot      @relation(fields: [pilotId], references: [id])
+
   @@id([pilotId, permissionId])
+  @@index([permissionId], map: "PilotPermissions_permission_id_fkey")
   @@map("PilotPermissions")
 }
 
 model Flight {
-  id            Int      @id @default(autoincrement())
+  id            Int       @id @default(autoincrement())
   pilotId       Int
-  pilot         Pilot    @relation(fields: [pilotId], references: [id])
-  status        Int      // 1: Pending, 2: Accepted, 3: Rejected
-  type          Int      // 1: Manual, 2: Regular, 3: Charter, 4: ACARS, 5: Free Mode
-  callsign      String
   aircraft      String
-  departureIcao String
-  departure     Airport  @relation("DepartureFlight", fields: [departureIcao], references: [icao])
-  arrivalIcao   String
-  arrival       Airport  @relation("ArrivalFlight", fields: [arrivalIcao], references: [icao])
-  routeId       Int?     // Optional relation to Route
-  route         Route?   @relation(fields: [routeId], references: [id])
-  fleetId       Int?     // Optional relation to Fleet
-  fleet         Fleet?   @relation(fields: [fleetId], references: [id])
-  startFlight   DateTime?
-  closeFlight   DateTime?
+  status        Int
   pirep         String?
-  network       String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  arrivalIcao   String
+  closeFlight   DateTime?
+  departureIcao String
+  fleetId       Int?
+  routeId       Int?
+  startFlight   DateTime?
+  type          Int
   comment       String?
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  callsign      String
+  network       String?
+  arrival       Airport   @relation("ArrivalFlight", fields: [arrivalIcao], references: [icao])
+  departure     Airport   @relation("DepartureFlight", fields: [departureIcao], references: [icao])
+  fleet         Fleet?    @relation(fields: [fleetId], references: [id])
+  pilot         Pilot     @relation(fields: [pilotId], references: [id])
+  route         Route?    @relation(fields: [routeId], references: [id])
+
+  @@index([arrivalIcao], map: "Flight_arrivalIcao_fkey")
+  @@index([departureIcao], map: "Flight_departureIcao_fkey")
+  @@index([fleetId], map: "Flight_fleetId_fkey")
+  @@index([pilotId], map: "Flight_pilotId_fkey")
+  @@index([routeId], map: "Flight_routeId_fkey")
 }
 
 model Rules {
@@ -107,29 +118,29 @@ model Documentation {
 }
 
 model Event {
-  id              Int      @id @default(autoincrement())
+  id               Int      @id @default(autoincrement())
   time_event_start DateTime
   time_event_end   DateTime
   open_view_date   DateTime
   close_view_date  DateTime
-  text            String   @db.VarChar(1024)
-  description     String   @db.VarChar(2048)
-  banner          String   @db.VarChar(255)
-  points          Int
-  lang            String   @db.VarChar(4)
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  text             String   @db.VarChar(1024)
+  description      String   @db.VarChar(2048)
+  banner           String   @db.VarChar(255)
+  points           Int
+  lang             String   @db.VarChar(4)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
 }
 
 model Notam {
-  id              Int      @id @default(autoincrement())
-  title           String   @db.VarChar(255)
-  text            String   @db.VarChar(1024)
-  lang            String   @db.VarChar(4)
-  active_date     DateTime
+  id               Int      @id @default(autoincrement())
+  title            String   @db.VarChar(255)
+  text             String   @db.VarChar(1024)
+  lang             String   @db.VarChar(4)
+  active_date      DateTime
   desactivate_date DateTime
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
 }
 
 model Config {
@@ -141,36 +152,36 @@ model Config {
 }
 
 model Simulator {
-  id        Int      @id @default(autoincrement())
-  name      String   @db.VarChar(100)
-  logo      String   @db.VarChar(255)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id        Int        @id @default(autoincrement())
+  name      String     @db.VarChar(100)
+  logo      String     @db.VarChar(255)
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
   paintkits Paintkit[]
 }
 
 model Airline {
-  id        Int      @id @default(autoincrement())
-  name      String   @db.VarChar(100)
-  logo      String   @db.VarChar(255)
-  tail      String   @db.VarChar(255)
-  can_join  Boolean  @default(false)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  routes    Route[]
-  fleet     Fleet[]
-  hubs      Hub[]
+  id            Int            @id @default(autoincrement())
+  name          String         @db.VarChar(100)
+  logo          String         @db.VarChar(255)
+  tail          String         @db.VarChar(255)
+  can_join      Boolean        @default(false)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  fleet         Fleet[]
+  hubs          Hub[]
   pilotAirlines PilotAirline[]
+  routes        Route[]
 }
 
 model Medal {
-  id        Int      @id @default(autoincrement())
-  img       String   @db.VarChar(255)
-  text      String   @db.VarChar(255)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  tours     Tour[]
+  id          Int          @id @default(autoincrement())
+  img         String       @db.VarChar(255)
+  text        String       @db.VarChar(255)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
   pilotMedals PilotMedal[]
+  tours       Tour[]
 }
 
 model Rank {
@@ -186,87 +197,101 @@ model Rank {
 }
 
 model Airport {
-  icao      String   @id @db.VarChar(4)
-  iata      String?   @db.VarChar(3)
-  name      String   @db.VarChar(100)
-  country   String   @db.VarChar(100)
-  latitude  Float
-  longitude Float
-  altitude  Int?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  departureRoutes Route[]    @relation("DepartureAirport")
-  arrivalRoutes   Route[]    @relation("ArrivalAirport")
-  departureLegs   Leg[]      @relation("DepartureLeg")
-  arrivalLegs     Leg[]      @relation("ArrivalLeg")
-  hubs            Hub[]
-  pilots          Pilot[]
-  departureFlights Flight[]  @relation("DepartureFlight")
-  arrivalFlights   Flight[]  @relation("ArrivalFlight")
-  fleets          Fleet[]  @relation("FleetLocation")
+  icao             String   @id @db.VarChar(4)
+  iata             String?  @db.VarChar(3)
+  name             String   @db.VarChar(100)
+  country          String   @db.VarChar(100)
+  latitude         Float
+  longitude        Float
+  altitude         Int?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  fleets           Fleet[]  @relation("FleetLocation")
+  arrivalFlights   Flight[] @relation("ArrivalFlight")
+  departureFlights Flight[] @relation("DepartureFlight")
+  hubs             Hub[]
+  arrivalLegs      Leg[]    @relation("ArrivalLeg")
+  departureLegs    Leg[]    @relation("DepartureLeg")
+  pilots           Pilot[]
+  arrivalRoutes    Route[]  @relation("ArrivalAirport")
+  departureRoutes  Route[]  @relation("DepartureAirport")
 }
 
 model Aircraft {
-  id             Int      @id @default(autoincrement())
-  icao           String   @db.VarChar(4)
-  manufacturer   String   @db.VarChar(100)
+  id             Int        @id @default(autoincrement())
+  icao           String     @db.VarChar(4)
+  manufacturer   String     @db.VarChar(100)
   range          Int
   max_passengers Int
-  img            String   @db.VarChar(255)
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  img            String     @db.VarChar(255)
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
   fleet          Fleet[]
   paintkits      Paintkit[]
   routes         Route[]    @relation("RouteAircraft")
 }
 
 model Fleet {
-  id         Int      @id @default(autoincrement())
-  aircraftId Int
-  aircraft   Aircraft @relation(fields: [aircraftId], references: [id])
-  airlineId  Int
-  airline    Airline  @relation(fields: [airlineId], references: [id])
-  name       String   @db.VarChar(100)
-  reg        String   @db.VarChar(6)
-  state      Int      // 0: Free, 1: Reserved, 2: In Flight, 3: Maintenance
-  locationIcao String   @db.VarChar(4)
-  location     Airport  @relation("FleetLocation", fields: [locationIcao], references: [icao])
+  id           Int      @id @default(autoincrement())
+  aircraftId   Int
+  airlineId    Int
+  name         String   @db.VarChar(100)
+  reg          String   @db.VarChar(6)
+  state        Int
+  life         Int
+  rankId       Int?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
   hubId        Int?
+  locationIcao String   @db.VarChar(4)
+  aircraft     Aircraft @relation(fields: [aircraftId], references: [id])
+  airline      Airline  @relation(fields: [airlineId], references: [id])
   hub          Hub?     @relation(fields: [hubId], references: [id])
-  life       Int
-  rankId     Int?
-  rank       Rank?    @relation(fields: [rankId], references: [id])
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
-  flights    Flight[]
+  location     Airport  @relation("FleetLocation", fields: [locationIcao], references: [icao])
+  rank         Rank?    @relation(fields: [rankId], references: [id])
+  flights      Flight[]
+
+  @@index([aircraftId], map: "Fleet_aircraftId_fkey")
+  @@index([airlineId], map: "Fleet_airlineId_fkey")
+  @@index([hubId], map: "Fleet_hubId_fkey")
+  @@index([locationIcao], map: "Fleet_locationIcao_fkey")
+  @@index([rankId], map: "Fleet_rankId_fkey")
 }
 
 model Paintkit {
-  id          Int      @id @default(autoincrement())
+  id          Int       @id @default(autoincrement())
   simulatorId Int
-  simulator   Simulator @relation(fields: [simulatorId], references: [id])
-  url         String   @db.VarChar(255)
+  url         String    @db.VarChar(255)
   aircraftId  Int
-  aircraft    Aircraft @relation(fields: [aircraftId], references: [id])
-  developer   String   @db.VarChar(100)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  developer   String    @db.VarChar(100)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  aircraft    Aircraft  @relation(fields: [aircraftId], references: [id])
+  simulator   Simulator @relation(fields: [simulatorId], references: [id])
+
+  @@index([aircraftId], map: "Paintkit_aircraftId_fkey")
+  @@index([simulatorId], map: "Paintkit_simulatorId_fkey")
 }
 
 model Route {
-  id            Int        @id @default(autoincrement())
+  id            Int      @id @default(autoincrement())
   departureIcao String
-  departure     Airport    @relation("DepartureAirport", fields: [departureIcao], references: [icao])
   arrivalIcao   String
-  arrival       Airport    @relation("ArrivalAirport", fields: [arrivalIcao], references: [icao])
-  aircraftId    Int
-  aircraft      Aircraft   @relation("RouteAircraft", fields: [aircraftId], references: [id])
   airlineId     Int
-  airline       Airline    @relation(fields: [airlineId], references: [id])
-  callsign      String     @db.VarChar(8)
-  createdAt     DateTime   @default(now())
-  updatedAt     DateTime   @updatedAt
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  aircraftId    Int
+  callsign      String   @db.VarChar(8)
   flights       Flight[]
+  aircraft      Aircraft @relation("RouteAircraft", fields: [aircraftId], references: [id])
+  airline       Airline  @relation(fields: [airlineId], references: [id])
+  arrival       Airport  @relation("ArrivalAirport", fields: [arrivalIcao], references: [icao])
+  departure     Airport  @relation("DepartureAirport", fields: [departureIcao], references: [icao])
+
+  @@index([aircraftId], map: "Route_aircraftId_fkey")
+  @@index([airlineId], map: "Route_airlineId_fkey")
+  @@index([arrivalIcao], map: "Route_arrivalIcao_fkey")
+  @@index([departureIcao], map: "Route_departureIcao_fkey")
 }
 
 model RequestJoin {
@@ -276,7 +301,7 @@ model RequestJoin {
   id_vatsim String?  @db.VarChar(20)
   birthday  DateTime
   email     String   @db.VarChar(255)
-  status    Int      @default(0) // 0: pending, 1: approved, 2: rejected
+  status    Int      @default(0)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
@@ -284,7 +309,6 @@ model RequestJoin {
 model Tour {
   id          Int      @id @default(autoincrement())
   medalId     Int
-  medal       Medal    @relation(fields: [medalId], references: [id])
   img         String   @db.VarChar(255)
   name        String   @db.VarChar(100)
   description String   @db.VarChar(255)
@@ -293,37 +317,47 @@ model Tour {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   legs        Leg[]
+  medal       Medal    @relation(fields: [medalId], references: [id])
+
+  @@index([medalId], map: "Tour_medalId_fkey")
 }
 
 model Leg {
-  id                   Int      @id @default(autoincrement())
+  id                   Int          @id @default(autoincrement())
   tourId               Int
-  tour                 Tour     @relation(fields: [tourId], references: [id])
   airportDepartureIcao String
-  airportDeparture     Airport  @relation("DepartureLeg", fields: [airportDepartureIcao], references: [icao])
   airportArrivalIcao   String
-  airportArrival       Airport  @relation("ArrivalLeg", fields: [airportArrivalIcao], references: [icao])
-  createdAt            DateTime @default(now())
-  updatedAt            DateTime @updatedAt
+  createdAt            DateTime     @default(now())
+  updatedAt            DateTime     @updatedAt
+  airportArrival       Airport      @relation("ArrivalLeg", fields: [airportArrivalIcao], references: [icao])
+  airportDeparture     Airport      @relation("DepartureLeg", fields: [airportDepartureIcao], references: [icao])
+  tour                 Tour         @relation(fields: [tourId], references: [id])
   reportTours          ReportTour[]
+
+  @@index([airportArrivalIcao], map: "Leg_airportArrivalIcao_fkey")
+  @@index([airportDepartureIcao], map: "Leg_airportDepartureIcao_fkey")
+  @@index([tourId], map: "Leg_tourId_fkey")
 }
 
 model ReportTour {
   id             Int      @id @default(autoincrement())
   userId         Int
-  user           Pilot    @relation(fields: [userId], references: [id])
   legId          Int
-  leg            Leg      @relation(fields: [legId], references: [id])
-  status         Int      @default(0) // 0: pending, 1: accepted, 2: rejected
+  status         Int      @default(0)
   time_departure DateTime
   time_arrival   DateTime
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
+  leg            Leg      @relation(fields: [legId], references: [id])
+  user           Pilot    @relation(fields: [userId], references: [id])
+
+  @@index([legId], map: "ReportTour_legId_fkey")
+  @@index([userId], map: "ReportTour_userId_fkey")
 }
 
 model StaffList {
   id               Int      @id @default(autoincrement())
-  pilotId          Int      @unique // Ensure one-to-one by adding @unique
+  pilotId          Int      @unique
   nameRolePosition String   @db.VarChar(100)
   priority         Int
   createdAt        DateTime @default(now())
@@ -332,46 +366,56 @@ model StaffList {
 }
 
 model Hub {
-  id         Int      @id @default(autoincrement())
-  airportId  String   @map("airport_id")
-  airport    Airport  @relation(fields: [airportId], references: [icao])
-  airlineId  Int      @map("airline_id")
-  airline    Airline  @relation(fields: [airlineId], references: [id])
-  rankId     Int?     @map("rank_id")
-  rank       Rank?    @relation(fields: [rankId], references: [id])
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
-  pilotHubs  PilotHub[]
-  fleets     Fleet[]  @relation
+  id        Int        @id @default(autoincrement())
+  airportId String     @map("airport_id")
+  airlineId Int        @map("airline_id")
+  rankId    Int?       @map("rank_id")
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+  fleets    Fleet[]
+  airline   Airline    @relation(fields: [airlineId], references: [id])
+  airport   Airport    @relation(fields: [airportId], references: [icao])
+  rank      Rank?      @relation(fields: [rankId], references: [id])
+  pilotHubs PilotHub[]
+
+  @@index([airlineId], map: "Hub_airline_id_fkey")
+  @@index([airportId], map: "Hub_airport_id_fkey")
+  @@index([rankId], map: "Hub_rank_id_fkey")
 }
 
 model PilotAirline {
   id        Int      @id @default(autoincrement())
   pilotId   Int      @unique
   airlineId Int
-  pilot     Pilot    @relation("PilotToPilotAirline", fields: [pilotId], references: [id])
-  airline   Airline  @relation(fields: [airlineId], references: [id])
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  airline   Airline  @relation(fields: [airlineId], references: [id])
+  pilot     Pilot    @relation("PilotToPilotAirline", fields: [pilotId], references: [id])
+
+  @@index([airlineId], map: "PilotAirline_airlineId_fkey")
 }
 
 model PilotHub {
   id        Int      @id @default(autoincrement())
   pilotId   Int      @unique
   hubId     Int
-  pilot     Pilot    @relation("PilotToPilotHub", fields: [pilotId], references: [id])
-  hub       Hub      @relation(fields: [hubId], references: [id])
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  hub       Hub      @relation(fields: [hubId], references: [id])
+  pilot     Pilot    @relation("PilotToPilotHub", fields: [pilotId], references: [id])
+
+  @@index([hubId], map: "PilotHub_hubId_fkey")
 }
 
 model PilotMedal {
   pilotId   Int      @map("pilot_id")
   medalId   Int      @map("medal_id")
-  pilot     Pilot    @relation(fields: [pilotId], references: [id], onDelete: Cascade)
-  medal     Medal    @relation(fields: [medalId], references: [id], onDelete: Cascade)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  medal     Medal    @relation(fields: [medalId], references: [id], onDelete: Cascade)
+  pilot     Pilot    @relation(fields: [pilotId], references: [id], onDelete: Cascade)
+
   @@id([pilotId, medalId])
+  @@index([medalId], map: "PilotMedals_medal_id_fkey")
   @@map("PilotMedals")
 }

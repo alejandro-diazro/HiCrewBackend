@@ -1,4 +1,5 @@
 const nodemailer = require('nodemailer');
+const airlineConfig = require('../config/airline.config');
 
 // Create a transporter (reusable across all emails)
 const transporter = nodemailer.createTransport({
@@ -14,7 +15,7 @@ const transporter = nodemailer.createTransport({
 const sendEmail = async ({ to, subject, text, html }) => {
     try {
         const info = await transporter.sendMail({
-            from: `"${process.env.EMAIL_NAME}" <${process.env.EMAIL_USER}>`,
+            from: `"${airlineConfig.email.name}" <${airlineConfig.email.from}>`,
             to,
             subject,
             text,
@@ -29,26 +30,26 @@ const sendEmail = async ({ to, subject, text, html }) => {
 };
 
 const sendRegistrationRequestEmail = async ({ email, firstName, lastName }) => {
-    const subject = 'HiCrew Registration Request Received';
-    const text = `Dear ${firstName} ${lastName},\n\nYour registration request has been received and is pending review. We'll notify you once it's approved.\n\nThank you,\nHiCrew Team`;
-    const html = `<p>Dear ${firstName} ${lastName},</p><p>Your registration request has been received and is pending review. We'll notify you once it's approved.</p><p>Thank you,<br>HiCrew Team</p>`;
+    const subject = `${airlineConfig.email.name} Registration Request Received`;
+    const text = `Dear ${firstName} ${lastName},\n\nYour registration request has been received and is pending review. We'll notify you once it's approved.\n\nThank you,\n${airlineConfig.email.name} Team`;
+    const html = `<p>Dear ${firstName} ${lastName},</p><p>Your registration request has been received and is pending review. We'll notify you once it's approved.</p><p>Thank you,<br>${airlineConfig.email.name} Team</p>`;
 
     await sendEmail({ to: email, subject, text, html });
 };
 
 const sendWelcomeEmail = async ({ email, firstName, lastName }) => {
-    const subject = 'Welcome to HiCrew!';
-    const text = `Dear ${firstName} ${lastName},\n\nWelcome to HiCrew! Your account has been successfully created. You can now log in and start exploring.\n\nThank you,\nHiCrew Team`;
-    const html = `<p>Dear ${firstName} ${lastName},</p><p>Welcome to HiCrew! Your account has been successfully created. You can now log in and start exploring.</p><p>Thank you,<br>HiCrew Team</p>`;
+    const subject = `Welcome to ${airlineConfig.email.name}!`;
+    const text = `Dear ${firstName} ${lastName},\n\nWelcome to ${airlineConfig.email.name}! Your account has been successfully created. You can now log in and start exploring.\n\nThank you,\n${airlineConfig.email.name} Team`;
+    const html = `<p>Dear ${firstName} ${lastName},</p><p>Welcome to ${airlineConfig.email.name}! Your account has been successfully created. You can now log in and start exploring.</p><p>Thank you,<br>${airlineConfig.email.name} Team</p>`;
 
     await sendEmail({ to: email, subject, text, html });
 };
 
 const sendPasswordResetEmail = async ({ email, firstName, lastName, resetToken }) => {
-    const subject = 'HiCrew Password Reset Request';
-    const resetUrl = `${process.env.FRONTEND_URL}/reset-password?token=${resetToken}`;
-    const text = `Dear ${firstName} ${lastName},\n\nYou have requested to reset your password. Please click the following link to reset your password:\n${resetUrl}\n\nThis link will expire in 1 hour.\n\nIf you did not request this, please ignore this email.\n\nThank you,\nHiCrew Team`;
-    const html = `<p>Dear ${firstName} ${lastName},</p><p>You have requested to reset your password. Please click the following link to reset your password:</p><p><a href="${resetUrl}">Reset Password</a></p><p>This link will expire in 1 hour.</p><p>If you did not request this, please ignore this email.</p><p>Thank you,<br>HiCrew Team</p>`;
+    const subject = `${airlineConfig.email.name} Password Reset Request`;
+    const resetUrl = `${airlineConfig.urls.frontend}/reset-password?token=${resetToken}`;
+    const text = `Dear ${firstName} ${lastName},\n\nYou have requested to reset your password. Please click the following link to reset your password:\n${resetUrl}\n\nThis link will expire in 1 hour.\n\nIf you did not request this, please ignore this email.\n\nThank you,\n${airlineConfig.email.name} Team`;
+    const html = `<p>Dear ${firstName} ${lastName},</p><p>You have requested to reset your password. Please click the following link to reset your password:</p><p><a href="${resetUrl}">Reset Password</a></p><p>This link will expire in 1 hour.</p><p>If you did not request this, please ignore this email.</p><p>Thank you,<br>${airlineConfig.email.name} Team</p>`;
 
     await sendEmail({ to: email, subject, text, html });
 };
