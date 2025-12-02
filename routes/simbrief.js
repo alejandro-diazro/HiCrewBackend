@@ -261,7 +261,8 @@ router.post('/import/:flightId', authenticate, async (req, res) => {
                 reserve: ofp.fuel?.reserve || 0,
                 contingency: ofp.fuel?.contingency || 0,
                 alternate: ofp.fuel?.alternate_burn || 0,
-                extra: ofp.fuel?.extra || 0
+                extra: ofp.fuel?.extra || 0,
+                avg_fuel_flow: ofp.fuel?.avg_fuel_flow || 0
             },
             
             // Weights
@@ -307,8 +308,8 @@ router.post('/import/:flightId', authenticate, async (req, res) => {
         const updatedFlight = await prisma.flight.update({
             where: { id: flightId },
             data: {
-                // Store complete SimBrief data in the new JSON field
-                simbriefData: simbriefFullData
+                // Store complete SimBrief data as JSON string
+                simbriefData: JSON.stringify(simbriefFullData)
             },
             include: {
                 departure: true,
@@ -367,8 +368,10 @@ router.get('/ivao-prefile/:flightId', authenticate, async (req, res) => {
         let simbriefStored = false;
         
         if (flight.simbriefData) {
-            // Use the new simbriefData field
-            const sbData = flight.simbriefData;
+            // Parse the JSON string to object
+            const sbData = typeof flight.simbriefData === 'string' 
+                ? JSON.parse(flight.simbriefData) 
+                : flight.simbriefData;
             if (sbData.atc) {
                 atc = sbData.atc;
                 simbriefStored = true;
@@ -415,26 +418,55 @@ router.get('/ivao-prefile/:flightId', authenticate, async (req, res) => {
         
         
         // Get data from SimBrief or defaults
-        const simbriefData = flight.simbriefData || {};
+        const simbriefData = flight.simbriefData 
+            ? (typeof flight.simbriefData === 'string' ? JSON.parse(flight.simbriefData) : flight.simbriefData)
+            : {};
         const cruiseSpeed = parseInt(atc?.cruise_speed || simbriefData.cruiseSpeed || '350');
         const cruiseAltitude = parseInt((atc?.initial_altitude || simbriefData.cruiseAltitude || '35000').replace(/[^0-9]/g, '')) / 100;
         const eet = parseInt(simbriefData.times?.estimated_block || '7200'); // Keep in seconds for IVAO
         const passengers = simbriefData.weights?.pax_count || 0;
         
         // Calculate endurance from SimBrief fuel data
-        // SimBrief provides: plan_ramp (total fuel) and estimated fuel flow
-        // Endurance = total fuel / fuel flow per hour * 3600 (to get seconds)
-        // If not available, use a safe default of 5 hours (18000 seconds)
-        let endurance = 18000; // Default 5 hours in seconds
+        // More accurate approach: Use block time + reserve/alternate/contingency fuel time
+        // This gives a more realistic endurance based on actual flight planning
+        let endurance = 18000; // Default 5 hours in seconds as fallback
         
-        if (simbriefData.fuel?.plan_ramp && simbriefData.fuel?.avg_fuel_flow) {
-            // plan_ramp is in lbs or kg, avg_fuel_flow is per hour per engine
-            const totalFuel = parseInt(simbriefData.fuel.plan_ramp);
-            const fuelFlow = parseInt(simbriefData.fuel.avg_fuel_flow) * (simbriefData.general?.engine_count || 2);
-            if (totalFuel > 0 && fuelFlow > 0) {
-                const enduranceHours = totalFuel / fuelFlow;
-                endurance = Math.round(enduranceHours * 3600); // Convert to seconds
+        if (simbriefData.times?.estimated_block) {
+            // Start with estimated block time (flight time in seconds)
+            const blockTimeSeconds = parseInt(simbriefData.times.estimated_block) || 0;
+            
+            // Calculate additional fuel time from reserves
+            // Reserve fuel is typically 45 minutes, alternate varies, contingency is typically 5% of trip fuel
+            const reserveFuel = parseInt(simbriefData.fuel?.reserve || 0);
+            const alternateFuel = parseInt(simbriefData.fuel?.alternate || 0);
+            const contingencyFuel = parseInt(simbriefData.fuel?.contingency || 0);
+            const extraFuel = parseInt(simbriefData.fuel?.extra || 0);
+            const tripFuelLanding = parseInt(simbriefData.fuel?.plan_landing || 0);
+            
+            // Estimate additional time from reserves (assuming similar fuel flow as main flight)
+            let additionalTimeSeconds = 0;
+            if (blockTimeSeconds > 0 && tripFuelLanding > 0) {
+                const totalReserveFuel = reserveFuel + alternateFuel + contingencyFuel + extraFuel;
+                // Calculate approximate fuel flow: landing fuel / block time
+                const approxFuelFlow = tripFuelLanding / blockTimeSeconds;
+                if (approxFuelFlow > 0) {
+                    additionalTimeSeconds = totalReserveFuel / approxFuelFlow;
+                }
+            } else if (simbriefData.fuel?.avg_fuel_flow && simbriefData.general?.engine_count) {
+                // Fallback: use SimBrief's avg_fuel_flow if available
+                const totalReserveFuel = reserveFuel + alternateFuel + contingencyFuel + extraFuel;
+                const fuelFlow = parseInt(simbriefData.fuel.avg_fuel_flow) * (parseInt(simbriefData.general.engine_count) || 2);
+                if (fuelFlow > 0) {
+                    additionalTimeSeconds = (totalReserveFuel / fuelFlow) * 3600; // Convert hours to seconds
+                }
             }
+            
+            // Total endurance = block time + reserve time
+            endurance = blockTimeSeconds + additionalTimeSeconds;
+            
+            // Ensure we have at least 45 minutes more than block time (standard reserve)
+            const minimumEndurance = blockTimeSeconds + (45 * 60); // Block time + 45 minutes
+            endurance = Math.max(endurance, minimumEndurance);
         }
         
         // Make sure endurance is reasonable (between 1 hour and 24 hours)
@@ -532,7 +564,9 @@ router.get('/vatsim-prefile/:flightId', authenticate, async (req, res) => {
         let simbriefStored = false;
 
         if (flight.simbriefData) {
-            const sbData = flight.simbriefData;
+            const sbData = typeof flight.simbriefData === 'string' 
+                ? JSON.parse(flight.simbriefData) 
+                : flight.simbriefData;
             if (sbData.atc) {
                 flightPlanData = sbData;
                 simbriefStored = true;
@@ -578,7 +612,9 @@ router.get('/vatsim-prefile/:flightId', authenticate, async (req, res) => {
         }
 
         const atc = flightPlanData.atc || {};
-        const simbriefData = flight.simbriefData || flightPlanData || {};
+        const simbriefData = flight.simbriefData 
+            ? (typeof flight.simbriefData === 'string' ? JSON.parse(flight.simbriefData) : flight.simbriefData)
+            : flightPlanData || {};
 
         // Build VATSIM flight plan in FPL format
         const aircraft = simbriefData.aircraft || {};
@@ -632,15 +668,49 @@ router.get('/vatsim-prefile/:flightId', authenticate, async (req, res) => {
 -PBN/A1B2C2D2D3O2O3S2 DOF/${dof} REG/${registration} EET/VARIOUS OPR/${airlineConfig.icaoCode} PER/C IVAOVA/${airlineConfig.icaoCode} RMK/TCAS EQUIPPED SIMBRIEF)`;
 
         // Calculate fuel time in HHMM format for endurance
-        let enduranceSeconds = 18000; // Default 5 hours
-        if (fuel.plan_ramp && fuel.avg_fuel_flow) {
-            const totalFuel = parseInt(fuel.plan_ramp);
-            const fuelFlow = parseInt(fuel.avg_fuel_flow) * (general.engine_count || 2);
-            if (totalFuel > 0 && fuelFlow > 0) {
-                const enduranceHours = totalFuel / fuelFlow;
-                enduranceSeconds = Math.round(enduranceHours * 3600);
+        // More accurate approach: Use block time + reserve/alternate/contingency fuel time
+        let enduranceSeconds = 18000; // Default 5 hours as fallback
+        
+        if (times.estimated_block) {
+            // Start with estimated block time (flight time in seconds)
+            const blockTimeSeconds = parseInt(times.estimated_block) || 0;
+            
+            // Calculate additional fuel time from reserves
+            const reserveFuel = parseInt(fuel.reserve || 0);
+            const alternateFuel = parseInt(fuel.alternate || 0);
+            const contingencyFuel = parseInt(fuel.contingency || 0);
+            const extraFuel = parseInt(fuel.extra || 0);
+            const tripFuelLanding = parseInt(fuel.plan_landing || 0);
+            
+            // Estimate additional time from reserves (assuming similar fuel flow as main flight)
+            let additionalTimeSeconds = 0;
+            if (blockTimeSeconds > 0 && tripFuelLanding > 0) {
+                const totalReserveFuel = reserveFuel + alternateFuel + contingencyFuel + extraFuel;
+                // Calculate approximate fuel flow: landing fuel / block time
+                const approxFuelFlow = tripFuelLanding / blockTimeSeconds;
+                if (approxFuelFlow > 0) {
+                    additionalTimeSeconds = totalReserveFuel / approxFuelFlow;
+                }
+            } else if (fuel.avg_fuel_flow && general.engine_count) {
+                // Fallback: use SimBrief's avg_fuel_flow if available
+                const totalReserveFuel = reserveFuel + alternateFuel + contingencyFuel + extraFuel;
+                const fuelFlow = parseInt(fuel.avg_fuel_flow) * (parseInt(general.engine_count) || 2);
+                if (fuelFlow > 0) {
+                    additionalTimeSeconds = (totalReserveFuel / fuelFlow) * 3600; // Convert hours to seconds
+                }
             }
+            
+            // Total endurance = block time + reserve time
+            enduranceSeconds = blockTimeSeconds + additionalTimeSeconds;
+            
+            // Ensure we have at least 45 minutes more than block time (standard reserve)
+            const minimumEndurance = blockTimeSeconds + (45 * 60); // Block time + 45 minutes
+            enduranceSeconds = Math.max(enduranceSeconds, minimumEndurance);
         }
+        
+        // Make sure endurance is reasonable (between 1 hour and 24 hours)
+        enduranceSeconds = Math.max(3600, Math.min(enduranceSeconds, 86400));
+        
         const fuelHours = Math.floor(enduranceSeconds / 3600);
         const fuelMinutes = Math.floor((enduranceSeconds % 3600) / 60);
         const fuelTime = fuelHours.toString().padStart(2, '0') + fuelMinutes.toString().padStart(2, '0');

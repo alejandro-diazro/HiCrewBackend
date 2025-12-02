@@ -345,7 +345,7 @@ router.post('/import', authenticate, async (req, res) => {
                         network: 'IVAO',
                         pirep: `https://tracker.ivao.aero/flight/${ivaoFlight.sessionId}`,
                         comment: `Importado de IVAO - ${departureIcao} → ${arrivalIcao}`,
-                        extraData: {
+                        extraData: JSON.stringify({
                             source: 'IVAO Tracker Import',
                             ivaoSessionId: ivaoFlight.sessionId,
                             route: ivaoFlight.route,
@@ -355,7 +355,7 @@ router.post('/import', authenticate, async (req, res) => {
                             cruiseAltitude: ivaoFlight.cruiseAltitude,
                             alternateId: ivaoFlight.alternateId,
                             importedAt: new Date().toISOString()
-                        }
+                        })
                     },
                     select: {
                         id: true,

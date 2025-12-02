@@ -405,7 +405,15 @@
                     }
                 }
             });
-            res.json(flights);
+            
+            // Parse extraData and simbriefData JSON strings back to objects
+            const processedFlights = flights.map(flight => ({
+                ...flight,
+                extraData: flight.extraData ? JSON.parse(flight.extraData) : null,
+                simbriefData: flight.simbriefData ? JSON.parse(flight.simbriefData) : null
+            }));
+            
+            res.json(processedFlights);
         } catch (error) {
             console.error('Failed to fetch active flights:', error);
             res.status(500).json({ error: 'Failed to fetch active flights' });
@@ -784,10 +792,10 @@
                 // Store optional free mode data in extraData field as JSON
                 let extraData = null;
                 if (isFreeMode && (passengers || extraFuelMinutes)) {
-                    extraData = {
+                    extraData = JSON.stringify({
                         passengers: passengers || null,
                         extraFuelMinutes: extraFuelMinutes || null
-                    };
+                    });
                 }
 
                 const flight = await prisma.flight.create({
@@ -833,7 +841,13 @@
                     });
                 }
 
-                res.status(201).json(flight);
+                // Parse extraData JSON string back to object for response
+                const processedFlight = {
+                    ...flight,
+                    extraData: flight.extraData ? JSON.parse(flight.extraData) : null
+                };
+
+                res.status(201).json(processedFlight);
             } catch (error) {
                 console.error(`Failed to create ${type} flight:`, error);
                 res.status(500).json({ error: `Failed to create ${type} flight` });

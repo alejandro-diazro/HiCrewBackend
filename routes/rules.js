@@ -15,7 +15,7 @@ router.get('/:lang', async (req, res) => {
 
     try {
         // First try to get rules in requested language
-        let rules = await prisma.rules.findUnique({
+        let rules = await prisma.rules.findFirst({
             where: { 
                 lang,
                 isActive: true 
@@ -32,7 +32,7 @@ router.get('/:lang', async (req, res) => {
 
         // If not found, fallback to English
         if (!rules && lang !== 'en') {
-            rules = await prisma.rules.findUnique({
+            rules = await prisma.rules.findFirst({
                 where: { 
                     lang: 'en',
                     isActive: true 
@@ -110,7 +110,12 @@ router.put('/:lang', authenticate, checkPermissions(['RULE_ADMIN']), async (req,
     try {
         // Use upsert to create or update
         const rule = await prisma.rules.upsert({
-            where: { lang },
+            where: { 
+                lang_title: {
+                    lang,
+                    title: title || 'Rules'
+                }
+            },
             update: {
                 title: title || 'Rules',
                 text,

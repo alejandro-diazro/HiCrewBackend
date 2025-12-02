@@ -66,6 +66,7 @@ app.use('/pilot-medals',pilotMedalRouter);
 app.use('/flights', flightRouter);
 app.use('/simbrief', require('./routes/simbrief'));
 app.use('/admin-stats', require('./routes/admin-stats'));
+app.use('/cleanup', require('./routes/cleanup'));
 app.use('/career', require('./routes/career'));
 app.use('/career-migration', require('./routes/career-migration'));
 app.use('/career-admin', require('./routes/career-admin'));
