@@ -63,6 +63,96 @@ router.get('/', authenticate, async (req, res) => {
     }
 });
 
+// Public endpoint to show aircraft models only
+router.get('/models', async (req, res) => {
+    try {
+        // Get all unique aircraft models with count of units in fleet
+        const aircraftModels = await prisma.aircraft.findMany({
+            select: {
+                id: true,
+                icao: true,
+                manufacturer: true,
+                range: true,
+                max_passengers: true,
+                img: true,
+                fleet: {
+                    select: {
+                        id: true,
+                        state: true,
+                    }
+                }
+            },
+            orderBy: [
+                { manufacturer: 'asc' },
+                { icao: 'asc' }
+            ]
+        });
+
+        // Transform data to include fleet statistics
+        const result = aircraftModels.map(aircraft => ({
+            id: aircraft.id,
+            icao: aircraft.icao,
+            manufacturer: aircraft.manufacturer,
+            model: `${aircraft.manufacturer} ${aircraft.icao}`,
+            range: aircraft.range,
+            max_passengers: aircraft.max_passengers,
+            img: aircraft.img,
+            totalUnits: aircraft.fleet.length,
+            availableUnits: aircraft.fleet.filter(f => f.state === 0).length,
+            inFlightUnits: aircraft.fleet.filter(f => f.state === 2).length
+        }));
+
+        res.json(result);
+    } catch (error) {
+        console.error('Failed to fetch aircraft models:', error);
+        res.status(500).json({ error: 'Failed to fetch aircraft models' });
+    }
+});
+
+// Endpoint to get fleet details for a specific aircraft model (authenticated)
+router.get('/model/:aircraftId', authenticate, async (req, res) => {
+    try {
+        const { aircraftId } = req.params;
+        
+        const fleet = await prisma.fleet.findMany({
+            where: {
+                aircraftId: parseInt(aircraftId)
+            },
+            select: {
+                id: true,
+                name: true,
+                reg: true,
+                state: true,
+                life: true,
+                location: {
+                    select: {
+                        icao: true,
+                        name: true,
+                    },
+                },
+                hub: {
+                    select: {
+                        airport: {
+                            select: {
+                                icao: true,
+                                name: true,
+                            },
+                        },
+                    },
+                },
+            },
+            orderBy: {
+                reg: 'asc'
+            }
+        });
+
+        res.json(fleet);
+    } catch (error) {
+        console.error('Failed to fetch fleet details:', error);
+        res.status(500).json({ error: 'Failed to fetch fleet details' });
+    }
+});
+
 router.post('/', authenticate, checkPermissions(['OPERATIONS_MANAGER']), async (req, res) => {
     const { aircraftId, airlineId, name, reg, state, locationIcao, hubId, life, rankId } = req.body;
 

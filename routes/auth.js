@@ -65,6 +65,9 @@ router.post('/register', async (req, res) => {
                 return res.status(400).json({ error: 'Email, IVAO VID, or VATSIM VID is already in a pending request' });
             }
 
+            // Hash the password before storing
+            const hashedPassword = await bcrypt.hash(password, 10);
+            
             const requestJoin = await prisma.requestJoin.create({
                 data: {
                     name: `${firstName} ${lastName}`,
@@ -72,6 +75,7 @@ router.post('/register', async (req, res) => {
                     id_vatsim: vatsimId || null,
                     birthday: new Date(birthDate),
                     email,
+                    password: hashedPassword, // Store hashed password
                     status: 0, // Pending
                 },
             });
@@ -109,6 +113,13 @@ router.post('/register', async (req, res) => {
                 return res.status(500).json({ error: 'Default rank (ID: 1) not found in the database' });
             }
 
+            // Check if there's only one airline and auto-assign it
+            const airlines = await prisma.airline.findMany();
+            let airlineId = null;
+            if (airlines.length === 1) {
+                airlineId = airlines[0].id;
+            }
+
             const pilot = await prisma.pilot.create({
                 data: {
                     email,
@@ -132,6 +143,16 @@ router.post('/register', async (req, res) => {
                     location: true,
                 },
             });
+
+            // If there's an airline to assign, create the PilotAirline relation
+            if (airlineId) {
+                await prisma.pilotAirline.create({
+                    data: {
+                        pilotId: pilot.id,
+                        airlineId: airlineId,
+                    },
+                });
+            }
 
             const token = jwt.sign({ id: pilot.id, email: pilot.email }, process.env.JWT_SECRET, {
                 expiresIn: '7d',
@@ -411,20 +432,80 @@ router.delete('/delete/:pilotId', authenticate, checkPermissions(['USER_MANAGER'
     try {
         const pilot = await prisma.pilot.findUnique({
             where: { id: parseInt(pilotId) },
+            include: {
+                flights: { select: { id: true } },
+                pilotPermissions: { select: { pilotId: true } },
+                pilotHub: { select: { id: true } },
+                pilotAirline: { select: { id: true } },
+                reportTours: { select: { id: true } },
+            }
         });
 
         if (!pilot) {
             return res.status(404).json({ error: 'Pilot not found' });
         }
 
-        await prisma.pilot.delete({
-            where: { id: parseInt(pilotId) },
+        // Check if user is trying to delete themselves
+        if (pilot.id === req.user.pilot_id) {
+            return res.status(400).json({ error: 'Cannot delete your own account' });
+        }
+
+        // Use transaction to ensure all deletions succeed or none do
+        await prisma.$transaction(async (tx) => {
+            // Delete related records in the correct order
+            
+            // 1. Delete pilot permissions
+            await tx.pilotPermission.deleteMany({
+                where: { pilotId: parseInt(pilotId) },
+            });
+
+            // 2. Delete pilot hub assignment
+            if (pilot.pilotHub) {
+                await tx.pilotHub.delete({
+                    where: { pilotId: parseInt(pilotId) },
+                });
+            }
+
+            // 3. Delete pilot airline assignment
+            if (pilot.pilotAirline) {
+                await tx.pilotAirline.delete({
+                    where: { pilotId: parseInt(pilotId) },
+                });
+            }
+
+            // 4. Delete report tours
+            await tx.reportTour.deleteMany({
+                where: { userId: parseInt(pilotId) },
+            });
+
+            // 5. Delete flights (consider if you want to keep historical data)
+            // WARNING: This will delete flight history. Consider soft delete or archive instead.
+            await tx.flight.deleteMany({
+                where: { pilotId: parseInt(pilotId) },
+            });
+
+            // 6. Finally delete the pilot
+            await tx.pilot.delete({
+                where: { id: parseInt(pilotId) },
+            });
         });
 
-        res.json({ message: 'Pilot account deleted successfully' });
+        res.json({ 
+            message: 'Pilot account deleted successfully',
+            deletedRecords: {
+                flights: pilot.flights.length,
+                permissions: pilot.pilotPermissions.length,
+                reportTours: pilot.reportTours.length,
+                hub: pilot.pilotHub ? 1 : 0,
+                airline: pilot.pilotAirline ? 1 : 0
+            }
+        });
     } catch (error) {
         console.error('Failed to delete pilot account:', error);
-        res.status(500).json({ error: 'Failed to delete pilot account' });
+        res.status(500).json({ 
+            error: 'Failed to delete pilot account', 
+            details: process.env.NODE_ENV === 'development' ? error.message : undefined
+        });
     }
 });
 
@@ -516,7 +597,7 @@ router.post('/reset-password', async (req, res) => {
 });
 
 router.post('/update-callsign', authenticate, async (req, res) => {
-    const { callsign } = req.body;
+    const { callsign, hubId } = req.body;
     const userId = req.user.id;
     const airlineCode = process.env.ICAO_AIRLINE || 'HCW';
 
@@ -583,13 +664,59 @@ router.post('/update-callsign', authenticate, async (req, res) => {
             },
         });
 
-        const pilotResponse = {
-            ...pilot,
-            permissions: pilot.pilotPermissions.map((pp) => pp.permission),
-            pilotPermissions: undefined,
-        };
-
-        res.json({ message: 'Callsign updated successfully', pilot: pilotResponse });
+        // If hubId is provided, assign the pilot to the hub
+        if (hubId) {
+            await prisma.pilotHub.create({
+                data: {
+                    pilotId: userId,
+                    hubId: parseInt(hubId)
+                }
+            });
+            
+            // Reload pilot with hub information
+            const updatedPilot = await prisma.pilot.findUnique({
+                where: { id: userId },
+                include: {
+                    pilotPermissions: {
+                        include: { permission: true },
+                    },
+                    pilotHub: {
+                        select: {
+                            hub: {
+                                include: {
+                                    airport: {
+                                        select: {
+                                            icao: true,
+                                            name: true,
+                                        },
+                                    },
+                                },
+                            },
+                        },
+                    },
+                    rank: true,
+                    location: true,
+                },
+            });
+            
+            const pilotResponse = {
+                ...updatedPilot,
+                permissions: updatedPilot.pilotPermissions.map((pp) => pp.permission),
+                hub: updatedPilot.pilotHub?.hub || null,
+                pilotPermissions: undefined,
+                pilotHub: undefined,
+            };
+            
+            res.json({ message: 'Callsign and hub updated successfully', pilot: pilotResponse });
+        } else {
+            const pilotResponse = {
+                ...pilot,
+                permissions: pilot.pilotPermissions.map((pp) => pp.permission),
+                pilotPermissions: undefined,
+            };
+            
+            res.json({ message: 'Callsign updated successfully', pilot: pilotResponse });
+        }
     } catch (error) {
         console.error('Failed to update callsign:', error);
         res.status(500).json({ error: 'Failed to update callsign' });

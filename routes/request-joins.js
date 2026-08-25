@@ -53,6 +53,7 @@ router.patch('/:id', authenticate, checkPermissions(['USER_MANAGER']), async (re
                     id_vatsim: true,
                     birthday: true,
                     email: true,
+                    password: true,
                     status: true,
                     createdAt: true,
                     updatedAt: true,
@@ -77,6 +78,16 @@ router.patch('/:id', authenticate, checkPermissions(['USER_MANAGER']), async (re
                 const [firstName, ...lastNameParts] = request.name.split(' ');
                 const lastName = lastNameParts.join(' ') || 'Unknown';
 
+                const defaultRank = await prisma.rank.findFirst({
+                    where: { name: 'Cadet' },
+                }) || await prisma.rank.findFirst({
+                    orderBy: { id: 'asc' },
+                });
+
+                if (!defaultRank) {
+                    throw new Error('No default rank available. Please create ranks first.');
+                }
+
                 const pilot = await prisma.pilot.create({
                     data: {
                         email: request.email,
@@ -86,8 +97,10 @@ router.patch('/:id', authenticate, checkPermissions(['USER_MANAGER']), async (re
                         lastName,
                         birthDate: request.birthday,
                         callsign: null,
-                        password: null,
-                        rank: 'Cadet',
+                        password: request.password,
+                        rank: {
+                            connect: { id: defaultRank.id }
+                        },
                         hours: 0,
                     },
                     select: {
@@ -100,15 +113,36 @@ router.patch('/:id', authenticate, checkPermissions(['USER_MANAGER']), async (re
                     },
                 });
 
-                return { request, pilot };
+                // Auto-assign airline if there's only one
+                const airlines = await prisma.airline.findMany({
+                    where: { can_join: true }
+                });
+
+                if (airlines.length === 1) {
+                    await prisma.pilotAirline.create({
+                        data: {
+                            pilotId: pilot.id,
+                            airlineId: airlines[0].id
+                        }
+                    });
+                }
+
+                // Delete the RequestJoin after successful approval
+                await prisma.requestJoin.delete({
+                    where: { id: request.id }
+                });
+
+                return { pilot };
             }
 
             return { request };
         });
 
         res.json({
-            message: 'Join request updated successfully',
-            request: result.request,
+            message: status === 1 
+                ? 'Join request approved and pilot created successfully' 
+                : 'Join request updated successfully',
+            ...(result.request && { request: result.request }),
             ...(result.pilot && { pilot: result.pilot }),
         });
     } catch (error) {
